@@ -28,12 +28,12 @@ public class SignalingHandler extends TextWebSocketHandler {
         //   "payload": { ... }
         // }
 
-        String payload = message.getPayload();
-        Map<String, Object> data = JSON.parse(payload);
+        String msg = message.getPayload();
+        Map<String, Object> data = JSON.parse(msg);
 
         String type = (String) data.get("type");
         String roomId = (String) data.get("roomId");
-        Object msgPayload = data.get("payload");
+        // Object msgPayload = data.get("payload");
 
         switch (type) {
             case "join" -> {
@@ -48,7 +48,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                 if (sessions != null) {
                     for (WebSocketSession s : sessions) {
                         if (!s.equals(session)) {
-                            s.sendMessage(new TextMessage(payload));
+                            s.sendMessage(new TextMessage(msg));
                         }
                     }
                 }

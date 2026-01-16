@@ -2,7 +2,7 @@ import { useState } from 'react'
 import './App.css'
 import SingleRoom from './SingleRoom'
 
-const API_BASE = import.meta.env.VITE_API_BASE
+const API_BASE = import.meta.env.VITE_API_BASE_MONA
 
 function App() {
   const [count, setCount] = useState(0)
