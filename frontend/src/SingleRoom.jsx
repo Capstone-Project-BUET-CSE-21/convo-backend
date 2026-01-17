@@ -1,21 +1,26 @@
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import PropTypes from 'prop-types';
 
-const ROOM_ID = "room1";
 const WS_BASE = import.meta.env.VITE_API_BASE_MONA;
 
-const SingleRoom = () => {
-  const localVideoRef = useRef(null);
-  const remoteVideoRef = useRef([]);
-  const pcRef = useRef(null);
+const SingleRoom = ({ localStream }) => {
+  const params = useParams();
+  const roomId = params.roomId;
   const wsRef = useRef(null);
-  const [connected, setConnected] = useState(false);
+  const pcRef = useRef(new Map());
 
-  // 1️⃣ Get local media
-  const init = async () => {
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideoRef.current.srcObject = stream;
+  const localVideoRef = useRef(null);
+  const remoteVideosRef = useRef(new Map());
 
-    // 2️⃣ Create PeerConnection
+  const [peers, setPeers] = useState([]);
+  const [isRecentlyJoined, setIsRecentlyJoined] = useState(true);
+  const navigate = useNavigate();
+
+
+  const createPeerConnection = async (peerId) => {
+    if (pcRef.current.has(peerId)) return;
+
     const pc = new RTCPeerConnection({
       iceServers: [
         {
@@ -43,125 +48,206 @@ const SingleRoom = () => {
         },
       ],
     });
-    pcRef.current = pc;
 
-    // Add local tracks
+    const stream = localVideoRef.current.srcObject;
     stream.getTracks().forEach(track => pc.addTrack(track, stream));
 
-    // Handle remote tracks
     const remoteStream = new MediaStream();
-    const remoteMediaRef = React.createRef();
-    remoteMediaRef.current.srcObject = remoteStream;
-    remoteVideoRef.current.push(remoteMediaRef);
+    remoteVideosRef.current.set(peerId, remoteStream);
 
-    pc.ontrack = (event) => {
-      event.streams[0].getTracks().forEach(track => remoteStream.addTrack(track));
+    pc.ontrack = e => {
+      e.streams[0].getTracks().forEach(t => remoteStream.addTrack(t));
     };
 
-    // ICE candidates
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log("ICE:", event.candidate.candidate);
-
+    pc.onicecandidate = e => {
+      if (e.candidate) {
         wsRef.current.send(JSON.stringify({
           type: "ice",
-          roomId: ROOM_ID,
-          payload: event.candidate
+          roomId: roomId,
+          to: peerId,
+          payload: e.candidate
         }));
       }
     };
 
-    pc.oniceconnectionstatechange = () => {
-      console.log("ICE state:", pc.iceConnectionState);
+    pc.onconnectionstatechange = () => {
+      console.log(`Connection state with ${peerId}:`, pc.connectionState);
     };
 
-    pc.onconnectionstatechange = () => {
-      console.log("PC state:", pc.connectionState);
-    };
+    pcRef.current.set(peerId, pc);
+    setPeers(prev => [...new Set([...prev, peerId])]);
+  };
+
+  const handleOffer = async (peerId, offer) => {
+    console.log("Received offer from:", peerId);
+    await createPeerConnection(peerId);
+    const pc = pcRef.current.get(peerId);
+
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      wsRef.current.send(JSON.stringify({
+        type: "answer",
+        roomId: roomId,
+        to: peerId,
+        payload: answer
+      }));
+      console.log("Sent answer to:", peerId);
+    } catch (err) {
+      console.error("Error handling offer:", err);
+    }
+  };
+
+  const removePeer = (peerId) => {
+    pcRef.current.get(peerId)?.close();
+    pcRef.current.delete(peerId);
+    remoteVideosRef.current.delete(peerId);
+    setPeers(p => p.filter(id => id !== peerId));
+  };
+
+  const leaveRoom = () => {
+    // Close all peer connections
+    pcRef.current.forEach(pc => pc.close());
+    pcRef.current.clear();
+    remoteVideosRef.current.clear();
+    setPeers([]);
+
+    // Close WebSocket
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.close();
+    }
+
+    navigate("/");
+
+    console.log("Left room: " + roomId);
   };
 
   useEffect(() => {
-    // 3️⃣ Connect to signaling server
     wsRef.current = new WebSocket(`wss://${WS_BASE}/ws`);
 
     wsRef.current.onopen = () => {
-      console.log("Connected to signaling server");
       wsRef.current.send(JSON.stringify({
         type: "join",
-        roomId: ROOM_ID
+        roomId: roomId
       }));
-      setConnected(true);
-    };
-
-    wsRef.current.onclose = () => {
-      console.log("Disconnected from signaling server");
-      setConnected(false);
     };
 
     wsRef.current.onmessage = async (event) => {
       const data = JSON.parse(event.data);
-      const { type, payload } = data;
 
-      if (!pcRef.current) return;
-
-      switch (type) {
-        case "offer": {
-          await pcRef.current.setRemoteDescription(payload);
-          const answer = await pcRef.current.createAnswer();
-          await pcRef.current.setLocalDescription(answer);
-          wsRef.current.send(JSON.stringify({
-            type: "answer",
-            roomId: ROOM_ID,
-            payload: answer
-          }));
+      switch (data.type) {
+        case "existing-peers":
+          // Just store the existing peers without creating connections yet
+          // User must click "Start Call / Join" to initiate
+          setPeers(data.peers);
           break;
-        }
+
+        case "peer-joined":
+          // When a new peer joins, add them to the list but don't create connection yet
+          setPeers(prev => [...new Set([...prev, data.peerId])]);
+          setIsRecentlyJoined(false);
+          break;
+
+        case "offer":
+          await handleOffer(data.from, data.payload);
+          break;
 
         case "answer":
-          await pcRef.current.setRemoteDescription(payload);
+          await pcRef.current
+            .get(data.from)
+            ?.setRemoteDescription(new RTCSessionDescription(data.payload));
           break;
 
         case "ice":
-          try {
-            await pcRef.current.addIceCandidate(payload);
-          } catch (e) {
-            console.error("Error adding received ice candidate", e);
-          }
+          await pcRef.current
+            .get(data.from)
+            ?.addIceCandidate(new RTCIceCandidate(data.payload));
           break;
 
-        default:
+        case "peer-left":
+          removePeer(data.peerId);
           break;
       }
     };
 
-    init();
+    localVideoRef.current.srcObject = localStream;
+
+    // startCall
+    
 
     return () => {
-      wsRef.current.close();
-      pcRef.current?.close();
+      wsRef.current?.close();
+      pcRef.current.forEach(pc => pc.close());
     };
   }, []);
 
-  const createOffer = async () => {
-    if (!pcRef.current || !connected) return;
-    const offer = await pcRef.current.createOffer();
-    await pcRef.current.setLocalDescription(offer);
-    wsRef.current.send(JSON.stringify({
-      type: "offer",
-      roomId: ROOM_ID,
-      payload: offer
-    }));
-  };
+  useEffect(() => {
+    console.log("Current peers:", peers);
+
+    if (isRecentlyJoined && peers.length > 0) {
+      const startCall = async () => {
+        setIsRecentlyJoined(false);
+        for (const peerId of peers) {
+          await createPeerConnection(peerId);
+        }
+
+        // Then send offers to all peers
+        for (const peerId of peers) {
+          try {
+            const pc = pcRef.current.get(peerId);
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            wsRef.current.send(JSON.stringify({
+              type: "offer",
+              roomId: roomId,
+              to: peerId,
+              payload: offer
+            }));
+            console.log("Sent offer to:", peerId);
+          } catch (err) {
+            console.error("Error sending offer:", err);
+          }
+        }
+      };
+
+      startCall();
+    }
+  }, [peers]);
+
+
 
   return (
     <div>
-      <h2>Single Room</h2>
-      <video ref={localVideoRef} autoPlay muted playsInline style={{ width: "400px" }} />
-      
-      <video ref={remoteVideoRef} autoPlay playsInline style={{ width: "400px" }} />
-      <button onClick={createOffer}>Start Call</button>
+      <h2>Room: {roomId}</h2>
+
+      <video ref={localVideoRef} autoPlay muted playsInline width={300} style={{transform: "scaleX(-1)"}} />
+
+      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+        {peers.map(pid => (
+          <video
+            key={pid}
+            autoPlay
+            playsInline
+            width={300}
+            ref={el => {
+              if (el) el.srcObject = remoteVideosRef.current.get(pid);
+            }}
+          />
+        ))}
+      </div>
+
+      <div style={{ marginTop: "20px", display: "flex", flexDirection: "row", justifyContent: "center" ,gap: "10px" }}>
+        <button onClick={leaveRoom} style={{ backgroundColor: "#ff4444", color: "white", padding: "10px 20px", border: "none", borderRadius: "4px", cursor: "pointer" }}>Leave Room</button>
+      </div>
     </div>
   );
 }
+
+SingleRoom.propTypes = {
+  localStream: PropTypes.object.isRequired,
+};
 
 export default SingleRoom;
