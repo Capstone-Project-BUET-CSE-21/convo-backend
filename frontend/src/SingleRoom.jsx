@@ -2,9 +2,9 @@ import { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PropTypes from 'prop-types';
 
-const WS_BASE = import.meta.env.VITE_API_BASE_MONA;
+const WS_BASE = import.meta.env.VITE_TABA_API_BASE;
 
-const SingleRoom = ({ localStream }) => {
+const SingleRoom = ({ localStream, command }) => {
   const params = useParams();
   const roomId = params.roomId;
   const wsRef = useRef(null);
@@ -129,7 +129,7 @@ const SingleRoom = ({ localStream }) => {
 
     wsRef.current.onopen = () => {
       wsRef.current.send(JSON.stringify({
-        type: "join",
+        type: command,
         roomId: roomId
       }));
     };
@@ -138,6 +138,18 @@ const SingleRoom = ({ localStream }) => {
       const data = JSON.parse(event.data);
 
       switch (data.type) {
+        case "room-not-found":
+          // Handle room not found (for "join" command)
+          alert("Room not found. Please check the Meeting ID.");
+          navigate("/");
+          break;
+
+        case "room-already-exists":
+          // Handle room exists (for "start" command)
+          alert("Room already exists. Please use a different Meeting ID.");
+          navigate("/");
+          break;
+
         case "existing-peers":
           // Just store the existing peers without creating connections yet
           // User must click "Start Call / Join" to initiate
@@ -173,8 +185,6 @@ const SingleRoom = ({ localStream }) => {
     };
 
     localVideoRef.current.srcObject = localStream;
-
-    // startCall
     
 
     return () => {
@@ -182,6 +192,7 @@ const SingleRoom = ({ localStream }) => {
       pcRef.current.forEach(pc => pc.close());
     };
   }, []);
+
 
   useEffect(() => {
     console.log("Current peers:", peers);
@@ -248,6 +259,7 @@ const SingleRoom = ({ localStream }) => {
 
 SingleRoom.propTypes = {
   localStream: PropTypes.object.isRequired,
+  command: PropTypes.string.isRequired
 };
 
 export default SingleRoom;
