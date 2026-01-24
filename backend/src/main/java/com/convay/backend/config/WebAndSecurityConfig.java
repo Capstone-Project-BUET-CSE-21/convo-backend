@@ -36,7 +36,7 @@ public class WebAndSecurityConfig {
                 registry.addMapping("/**") // all endpoints
                         .allowedOrigins(
                             Credentials.MONA_FRONTEND_URL,
-                            Credentials.FARIHA_FRONTEND_URL,
+                            Credentials.FARU_FRONTEND_URL,
                             Credentials.DEBO_FRONTEND_URL, 
                             Credentials.TABA_FRONTEND_URL,
                             "http://localhost:5173"

@@ -20,7 +20,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
         registry.addHandler(signalingHandler, "/ws")
                 .setAllowedOrigins(
                     Credentials.MONA_FRONTEND_URL, 
-                    Credentials.FARIHA_FRONTEND_URL,
+                    Credentials.FARU_FRONTEND_URL,
                     Credentials.DEBO_FRONTEND_URL,
                     Credentials.TABA_FRONTEND_URL,
                     "http://localhost:5173"
