@@ -1,8 +1,9 @@
 import { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PropTypes from 'prop-types';
+import "./SingleRoom.css";
 
-const WS_BASE = import.meta.env.VITE_TABA_API_BASE;
+const WS_BASE = import.meta.env.VITE_MONA_API_BASE;
 
 const SingleRoom = ({ localStream, command }) => {
   const params = useParams();
@@ -14,12 +15,63 @@ const SingleRoom = ({ localStream, command }) => {
   const remoteVideosRef = useRef(new Map());
 
   const [peers, setPeers] = useState([]);
-  const [isRecentlyJoined, setIsRecentlyJoined] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
 
+  // Initialize audio/video state from localStream
+  useEffect(() => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      const videoTrack = localStream.getVideoTracks()[0];
+      
+      if (audioTrack) {
+        setIsAudioEnabled(audioTrack.enabled);
+      }
+      if (videoTrack) {
+        setIsVideoEnabled(videoTrack.enabled);
+      }
+    }
+  }, [localStream]);
+
+  const copyMeetingId = async () => {
+    try {
+      await navigator.clipboard.writeText(roomId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy meeting ID:", err);
+    }
+  };
+
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsAudioEnabled(audioTrack.enabled);
+      }
+    }
+  };
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoEnabled(videoTrack.enabled);
+      }
+    }
+  };
 
   const createPeerConnection = async (peerId) => {
-    if (pcRef.current.has(peerId)) return;
+    if (pcRef.current.has(peerId)) {
+      console.log(`Peer connection already exists for ${peerId}`);
+      return pcRef.current.get(peerId);
+    }
+
+    console.log(`Creating peer connection for ${peerId}`);
 
     const pc = new RTCPeerConnection({
       iceServers: [
@@ -49,18 +101,31 @@ const SingleRoom = ({ localStream, command }) => {
       ],
     });
 
-    const stream = localVideoRef.current.srcObject;
-    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+    // Add local stream tracks
+    if (localVideoRef.current && localVideoRef.current.srcObject) {
+      const stream = localVideoRef.current.srcObject;
+      stream.getTracks().forEach(track => {
+        console.log(`Adding ${track.kind} track to peer ${peerId}`);
+        pc.addTrack(track, stream);
+      });
+    }
 
+    // Create remote stream
     const remoteStream = new MediaStream();
     remoteVideosRef.current.set(peerId, remoteStream);
 
     pc.ontrack = e => {
-      e.streams[0].getTracks().forEach(t => remoteStream.addTrack(t));
+      console.log(`Received ${e.track.kind} track from ${peerId}`);
+      e.streams[0].getTracks().forEach(t => {
+        if (!remoteStream.getTracks().includes(t)) {
+          remoteStream.addTrack(t);
+        }
+      });
     };
 
     pc.onicecandidate = e => {
       if (e.candidate) {
+        console.log(`Sending ICE candidate to ${peerId}`);
         wsRef.current.send(JSON.stringify({
           type: "ice",
           roomId: roomId,
@@ -72,16 +137,26 @@ const SingleRoom = ({ localStream, command }) => {
 
     pc.onconnectionstatechange = () => {
       console.log(`Connection state with ${peerId}:`, pc.connectionState);
+      if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+        console.log(`Removing failed connection for ${peerId}`);
+        removePeer(peerId);
+      }
     };
 
     pcRef.current.set(peerId, pc);
-    setPeers(prev => [...new Set([...prev, peerId])]);
+    setPeers(prev => {
+      if (!prev.includes(peerId)) {
+        return [...prev, peerId];
+      }
+      return prev;
+    });
+
+    return pc;
   };
 
   const handleOffer = async (peerId, offer) => {
     console.log("Received offer from:", peerId);
-    await createPeerConnection(peerId);
-    const pc = pcRef.current.get(peerId);
+    const pc = await createPeerConnection(peerId);
 
     try {
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -101,33 +176,40 @@ const SingleRoom = ({ localStream, command }) => {
   };
 
   const removePeer = (peerId) => {
-    pcRef.current.get(peerId)?.close();
+    const pc = pcRef.current.get(peerId);
+    if (pc) {
+      pc.close();
+    }
     pcRef.current.delete(peerId);
     remoteVideosRef.current.delete(peerId);
     setPeers(p => p.filter(id => id !== peerId));
   };
 
   const leaveRoom = () => {
-    // Close all peer connections
     pcRef.current.forEach(pc => pc.close());
     pcRef.current.clear();
     remoteVideosRef.current.clear();
     setPeers([]);
 
-    // Close WebSocket
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.close();
     }
 
     navigate("/");
-
     console.log("Left room: " + roomId);
   };
 
   useEffect(() => {
+    if (!localStream) {
+      console.error("No local stream available");
+      return;
+    }
+
+    console.log("Setting up WebSocket connection");
     wsRef.current = new WebSocket(`wss://${WS_BASE}/ws`);
 
     wsRef.current.onopen = () => {
+      console.log("WebSocket connected, sending", command, "for room", roomId);
       wsRef.current.send(JSON.stringify({
         type: command,
         roomId: roomId
@@ -136,30 +218,50 @@ const SingleRoom = ({ localStream, command }) => {
 
     wsRef.current.onmessage = async (event) => {
       const data = JSON.parse(event.data);
+      console.log("WebSocket message:", data.type, data);
 
       switch (data.type) {
         case "room-not-found":
-          // Handle room not found (for "join" command)
           alert("Room not found. Please check the Meeting ID.");
           navigate("/");
           break;
 
         case "room-already-exists":
-          // Handle room exists (for "start" command)
           alert("Room already exists. Please use a different Meeting ID.");
           navigate("/");
           break;
 
         case "existing-peers":
-          // Just store the existing peers without creating connections yet
-          // User must click "Start Call / Join" to initiate
-          setPeers(data.peers);
+          console.log("Existing peers:", data.peers);
+          // Create offers to all existing peers
+          for (const peerId of data.peers) {
+            try {
+              const pc = await createPeerConnection(peerId);
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+
+              wsRef.current.send(JSON.stringify({
+                type: "offer",
+                roomId: roomId,
+                to: peerId,
+                payload: offer
+              }));
+              console.log("Sent offer to existing peer:", peerId);
+            } catch (err) {
+              console.error("Error creating offer for", peerId, err);
+            }
+          }
           break;
 
         case "peer-joined":
-          // When a new peer joins, add them to the list but don't create connection yet
-          setPeers(prev => [...new Set([...prev, data.peerId])]);
-          setIsRecentlyJoined(false);
+          console.log("New peer joined:", data.peerId);
+          // Just update state, they will send us an offer
+          setPeers(prev => {
+            if (!prev.includes(data.peerId)) {
+              return [...prev, data.peerId];
+            }
+            return prev;
+          });
           break;
 
         case "offer":
@@ -167,91 +269,182 @@ const SingleRoom = ({ localStream, command }) => {
           break;
 
         case "answer":
-          await pcRef.current
-            .get(data.from)
-            ?.setRemoteDescription(new RTCSessionDescription(data.payload));
+          console.log("Received answer from:", data.from);
+          const pc = pcRef.current.get(data.from);
+          if (pc) {
+            await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
+          }
           break;
 
         case "ice":
-          await pcRef.current
-            .get(data.from)
-            ?.addIceCandidate(new RTCIceCandidate(data.payload));
+          console.log("Received ICE candidate from:", data.from);
+          const peerConnection = pcRef.current.get(data.from);
+          if (peerConnection) {
+            try {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(data.payload));
+            } catch (err) {
+              console.error("Error adding ICE candidate:", err);
+            }
+          }
           break;
 
         case "peer-left":
+          console.log("Peer left:", data.peerId);
           removePeer(data.peerId);
           break;
       }
     };
 
-    localVideoRef.current.srcObject = localStream;
-    
+    wsRef.current.onerror = (error) => {
+      console.error("WebSocket error:", error);
+    };
+
+    wsRef.current.onclose = () => {
+      console.log("WebSocket closed");
+    };
+
+    // Set local video
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = localStream;
+    }
 
     return () => {
-      wsRef.current?.close();
+      console.log("Cleaning up WebSocket and peer connections");
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
       pcRef.current.forEach(pc => pc.close());
+      pcRef.current.clear();
     };
-  }, []);
+  }, [localStream, command, roomId, navigate]); // Added dependencies
 
-
-  useEffect(() => {
-    console.log("Current peers:", peers);
-
-    if (isRecentlyJoined && peers.length > 0) {
-      const startCall = async () => {
-        setIsRecentlyJoined(false);
-        for (const peerId of peers) {
-          await createPeerConnection(peerId);
-        }
-
-        // Then send offers to all peers
-        for (const peerId of peers) {
-          try {
-            const pc = pcRef.current.get(peerId);
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            wsRef.current.send(JSON.stringify({
-              type: "offer",
-              roomId: roomId,
-              to: peerId,
-              payload: offer
-            }));
-            console.log("Sent offer to:", peerId);
-          } catch (err) {
-            console.error("Error sending offer:", err);
-          }
-        }
-      };
-
-      startCall();
-    }
-  }, [peers]);
-
-
+  // Show max 5 remote participants (when more than 6 total)
+  const visiblePeers = peers.length > 5 ? peers.slice(0, 5) : peers;
+  const hiddenPeersCount = peers.length > 5 ? peers.length - 5 : 0;
 
   return (
-    <div>
-      <h2>Room: {roomId}</h2>
-
-      <video ref={localVideoRef} autoPlay muted playsInline width={300} style={{transform: "scaleX(-1)"}} />
-
-      <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-        {peers.map(pid => (
-          <video
-            key={pid}
-            autoPlay
-            playsInline
-            width={300}
-            ref={el => {
-              if (el) el.srcObject = remoteVideosRef.current.get(pid);
-            }}
-          />
-        ))}
+    <div className="room-container">
+      <div className="room-header">
+        <div className="room-info">
+          <h2 className="room-title">Meeting Room</h2>
+          <div className="room-id-container">
+            <span className="room-id">ID: {roomId}</span>
+            <button 
+              className="copy-id-btn"
+              onClick={copyMeetingId}
+              title="Copy meeting ID"
+            >
+              {copied ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
+        <div className="participants-count">
+          <span className="participant-icon"></span>
+          <span>{peers.length + 1} Participant{peers.length !== 0 ? 's' : ''}</span>
+        </div>
       </div>
 
-      <div style={{ marginTop: "20px", display: "flex", flexDirection: "row", justifyContent: "center" ,gap: "10px" }}>
-        <button onClick={leaveRoom} style={{ backgroundColor: "#ff4444", color: "white", padding: "10px 20px", border: "none", borderRadius: "4px", cursor: "pointer" }}>Leave Room</button>
+      <div className="videos-container" data-participant-count={Math.min(peers.length + 1, 6)}>
+        {/* Local video */}
+        <div className="video-wrapper local-video-wrapper">
+          <video 
+            ref={localVideoRef} 
+            autoPlay 
+            muted 
+            playsInline 
+            className="video"
+          />
+          {!isVideoEnabled && (
+            <div className="video-overlay">Camera is off</div>
+          )}
+          <div className="video-label">You</div>
+        </div>
+
+        {/* Remote videos */}
+        {visiblePeers.map(pid => (
+          <div key={pid} className="video-wrapper remote-video-wrapper">
+            <video
+              autoPlay
+              playsInline
+              className="video"
+              ref={el => {
+                if (el) el.srcObject = remoteVideosRef.current.get(pid);
+              }}
+            />
+            <div className="video-label">Participant</div>
+          </div>
+        ))}
+
+        {/* Hidden participants indicator */}
+        {hiddenPeersCount > 0 && (
+          <div className="hidden-participants">
+            +{hiddenPeersCount} more participant{hiddenPeersCount > 1 ? 's' : ''}
+          </div>
+        )}
+      </div>
+
+      <div className="controls-bar">
+        <button 
+          className={`btn-control ${!isAudioEnabled ? 'disabled' : ''}`}
+          onClick={toggleAudio}
+          title={isAudioEnabled ? "Mute microphone" : "Unmute microphone"}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+            <line x1="12" y1="19" x2="12" y2="23"></line>
+            <line x1="8" y1="23" x2="16" y2="23"></line>
+            {!isAudioEnabled && <line x1="1" y1="1" x2="23" y2="23"></line>}
+          </svg>
+        </button>
+
+        <button 
+          className={`btn-control ${!isVideoEnabled ? 'disabled' : ''}`}
+          onClick={toggleVideo}
+          title={isVideoEnabled ? "Turn off camera" : "Turn on camera"}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            {!isVideoEnabled && <line x1="1" y1="1" x2="23" y2="23"></line>}
+          </svg>
+        </button>
+
+        <button 
+          className="btn-control"
+          onClick={() => {/* File upload functionality will be added later */}}
+          title="Upload file"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+        </button>
+
+        <button 
+          className="btn-leave"
+          onClick={leaveRoom}
+          title="Leave call"
+        >
+          <svg 
+            width="24" 
+            height="24" 
+            viewBox="0 0 24 24" 
+            fill="currentColor"
+          >
+            <path d="M21 15.46l-5.27-1.61a1 1 0 0 0-1 .27l-2.2 2.2a15.05 15.05 0 0 1-6.32-6.32l2.2-2.2a1 1 0 0 0 .27-1L8.54 3a1 1 0 0 0-1-.7H3a1 1 0 0 0-1 1 19 19 0 0 0 19 19 1 1 0 0 0 1-1v-4.54a1 1 0 0 0-.7-1z"/>
+          </svg>
+        </button>
       </div>
     </div>
   );
