@@ -1,11 +1,13 @@
 import { useEffect, useState} from 'react'
 import { Routes, Route } from 'react-router-dom'
 import './App.css'
-import SingleRoom from './SingleRoom'
+import MeetingRoom from './MeetingRoom'
 import Homepage from './Homepage'
 
 const App = () => {
   const [localStream, setLocalStream] = useState(null);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [command, setCommand] = useState("");
 
   useEffect(() => {
@@ -17,11 +19,25 @@ const App = () => {
     fetchLocalMedia();
   }, []);
 
+  const homepageAttributes = {
+    localStream,
+    commandPair: { command, setCommand },
+    isAudioEnabledPair: { isAudioEnabled, setIsAudioEnabled },
+    isVideoEnabledPair: { isVideoEnabled, setIsVideoEnabled }
+  };
+
+  const meetingRoomAttributes = {
+    localStream,
+    command: command.toLowerCase(),
+    isAudioEnabledPair: { isAudioEnabled, setIsAudioEnabled },
+    isVideoEnabledPair: { isVideoEnabled, setIsVideoEnabled }
+  };
+
   return (
     <>
       <Routes>
-        <Route path="" element={<Homepage localStream={localStream} command={command} setCommand={setCommand} />} />
-        <Route path="room/:roomId" element={<SingleRoom localStream={localStream} command={command.toLowerCase()} />} />
+        <Route path="" element={<Homepage homepageAttributes={homepageAttributes} />} />
+        <Route path="room/:roomId" element={<MeetingRoom meetingRoomAttributes={meetingRoomAttributes} />} />
       </Routes>
     </>
   )

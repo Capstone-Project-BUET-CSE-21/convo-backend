@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import PropTypes from "prop-types";
 import "./Homepage.css"; // Import your CSS file
 
-const Homepage = ({ localStream, command, setCommand }) => {
+const Homepage = ({ homepageAttributes }) => {
+    const { localStream, commandPair, isAudioEnabledPair, isVideoEnabledPair } = homepageAttributes;
+    const { command, setCommand } = commandPair;
+    const { isAudioEnabled, setIsAudioEnabled } = isAudioEnabledPair;
+    const { isVideoEnabled, setIsVideoEnabled } = isVideoEnabledPair;
+
     const [isEnteringMeetingId, setIsEnteringMeetingId] = useState(false);
     const [meetingId, setMeetingId] = useState("");
-    const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-    const [isVideoEnabled, setIsVideoEnabled] = useState(true);
     const [copied, setCopied] = useState(false);
 
     const localVideoRef = useRef(null);
@@ -54,8 +57,10 @@ const Homepage = ({ localStream, command, setCommand }) => {
 
     useEffect(() => {
         if (!localStream) return;
-        localVideoRef.current.srcObject = localStream;
-    }, [localVideoRef, localStream]);
+        if (localVideoRef.current) {
+            localVideoRef.current.srcObject = localStream;
+        }
+    }, [localStream]);
 
     const toggleAudio = () => {
         if (localStream) {

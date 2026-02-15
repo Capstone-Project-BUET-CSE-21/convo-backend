@@ -1,11 +1,41 @@
 import { useRef, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PropTypes from 'prop-types';
-import "./SingleRoom.css";
+import "./MeetingRoom.css";
 
 const WS_BASE = import.meta.env.VITE_MONA_API_BASE;
 
-const SingleRoom = ({ localStream, command }) => {
+const iceServers = [
+        {
+          urls: "stun:stun.relay.metered.ca:80",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:80",
+          username: "587fae9b9e261459032795cc",
+          credential: "V1AMbjxp0ByH3JVr",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:80?transport=tcp",
+          username: "587fae9b9e261459032795cc",
+          credential: "V1AMbjxp0ByH3JVr",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:443",
+          username: "587fae9b9e261459032795cc",
+          credential: "V1AMbjxp0ByH3JVr",
+        },
+        {
+          urls: "turns:global.relay.metered.ca:443?transport=tcp",
+          username: "587fae9b9e261459032795cc",
+          credential: "V1AMbjxp0ByH3JVr",
+        },
+      ];
+
+const SingleRoom = ({ meetingRoomAttributes }) => {
+  const { localStream, command, isAudioEnabledPair, isVideoEnabledPair } = meetingRoomAttributes;
+  const { isAudioEnabled, setIsAudioEnabled } = isAudioEnabledPair;
+  const { isVideoEnabled, setIsVideoEnabled } = isVideoEnabledPair;
+
   const params = useParams();
   const roomId = params.roomId;
 
@@ -16,36 +46,34 @@ const SingleRoom = ({ localStream, command }) => {
   const remoteVideosRef = useRef(new Map());
 
   const [peers, setPeers] = useState([]);
-  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
-  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
   const [copied, setCopied] = useState(false);
   const navigate = useNavigate();
-
-
-  const handleChange = (track, isAudio) => {
-    if (isAudio) {
-      setIsAudioEnabled(track.enabled);
-    } else {
-      setIsVideoEnabled(track.enabled);
-    }
-  }
+  
 
   // Initialize audio/video state from localStream
   useEffect(() => {
     if (localStream) {
-      const audioTrack = localStream.getAudioTracks()[0];
-      const videoTrack = localStream.getVideoTracks()[0];
-      
-      if (!audioTrack) return;
-      audioTrack.addEventListener("enabledchange", () => handleChange(audioTrack, true));
-      
-      if (!videoTrack) return;
-      videoTrack.addEventListener("enabledchange", () => handleChange(videoTrack, false));
-
       // Set local video
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = localStream;
       }
+      
+      const audioTrack = localStream.getAudioTracks()[0];
+      const videoTrack = localStream.getVideoTracks()[0];
+
+      const handleAudioChange = () => {
+        setIsAudioEnabled(audioTrack.enabled);
+      };
+
+      const handleVideoChange = () => {
+        setIsAudioEnabled(videoTrack.enabled);
+      };
+      
+      if (!audioTrack) return;
+      audioTrack.addEventListener("enabledchange", handleAudioChange);
+      
+      if (!videoTrack) return;
+      videoTrack.addEventListener("enabledchange", handleVideoChange);
 
       pcRef.current.forEach(pc => {
         pc.getSenders().forEach(sender => {
@@ -59,8 +87,8 @@ const SingleRoom = ({ localStream, command }) => {
       });
 
       return () => {
-        audioTrack.removeEventListener("enabledchange", () => handleChange(audioTrack, true));
-        videoTrack.removeEventListener("enabledchange", () => handleChange(videoTrack, false));
+        audioTrack.removeEventListener("enabledchange", handleAudioChange);
+        videoTrack.removeEventListener("enabledchange", handleVideoChange);
       };
     }
   }, [localStream]);
@@ -103,33 +131,7 @@ const SingleRoom = ({ localStream, command }) => {
 
     console.log(`Creating peer connection for ${peerId}`);
 
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        {
-          urls: "stun:stun.relay.metered.ca:80",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:80",
-          username: "587fae9b9e261459032795cc",
-          credential: "V1AMbjxp0ByH3JVr",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:80?transport=tcp",
-          username: "587fae9b9e261459032795cc",
-          credential: "V1AMbjxp0ByH3JVr",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:443",
-          username: "587fae9b9e261459032795cc",
-          credential: "V1AMbjxp0ByH3JVr",
-        },
-        {
-          urls: "turns:global.relay.metered.ca:443?transport=tcp",
-          username: "587fae9b9e261459032795cc",
-          credential: "V1AMbjxp0ByH3JVr",
-        },
-      ],
-    });
+    const pc = new RTCPeerConnection({iceServers});
 
     // Add local stream tracks
     if (localVideoRef.current && localVideoRef.current.srcObject) {
@@ -186,9 +188,8 @@ const SingleRoom = ({ localStream, command }) => {
 
   const handleOffer = async (peerId, offer) => {
     console.log("Received offer from:", peerId);
-    const pc = await createPeerConnection(peerId);
-
     try {
+      const pc = await createPeerConnection(peerId);
       await pc.setRemoteDescription(new RTCSessionDescription(offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -202,6 +203,25 @@ const SingleRoom = ({ localStream, command }) => {
       console.log("Sent answer to:", peerId);
     } catch (err) {
       console.error("Error handling offer:", err);
+    }
+  };
+
+  const sendOffer = async (peerId) => {
+    console.log("New peer joined:", peerId);
+    try {
+      const pc = await createPeerConnection(peerId);
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      wsRef.current.send(JSON.stringify({
+        type: "offer",
+        roomId: roomId,
+        to: peerId,
+        payload: offer
+      }));
+      console.log("Sent offer to new peer:", peerId);
+    } catch (err) {
+      console.error("Error sending offer to new peer", peerId, err);
     }
   };
 
@@ -225,6 +245,8 @@ const SingleRoom = ({ localStream, command }) => {
       wsRef.current.close();
     }
 
+    setIsAudioEnabled(true);
+    setIsVideoEnabled(true);
     navigate("/");
     console.log("Left room: " + roomId);
   };
@@ -257,22 +279,7 @@ const SingleRoom = ({ localStream, command }) => {
           break;
 
         case "peer-joined":
-          console.log("New peer joined:", data.peerId);
-          try {
-            const pc = await createPeerConnection(data.peerId);
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            wsRef.current.send(JSON.stringify({
-              type: "offer",
-              roomId: roomId,
-              to: data.peerId,
-              payload: offer
-            }));
-            console.log("Sent offer to new peer:", data.peerId);
-          } catch (err) {
-            console.error("Error creating offer for new peer", data.peerId, err);
-          }
+          await sendOffer(data.peerId);
           break;
 
         case "offer":
