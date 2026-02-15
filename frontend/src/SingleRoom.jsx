@@ -8,7 +8,7 @@ const WS_BASE = import.meta.env.VITE_MONA_API_BASE;
 const SingleRoom = ({ localStream, command }) => {
   const params = useParams();
   const roomId = params.roomId;
-  
+
   const wsRef = useRef(null);
   const pcRef = useRef(new Map());
 
@@ -316,13 +316,17 @@ const SingleRoom = ({ localStream, command }) => {
       console.log("WebSocket closed");
     };
 
+    const ws = wsRef.current;
+    const pcs = pcRef.current;
+
     return () => {
       console.log("Cleaning up WebSocket and peer connections");
-      if (wsRef.current) {
-        wsRef.current.close();
+      if (ws) {
+        ws.close();
       }
-      pcRef.current.forEach(pc => pc.close());
-      pcRef.current.clear();
+      
+      pcs.forEach(pc => pc.close());
+      pcs.clear();
     };
   }, []); // Added dependencies
 
