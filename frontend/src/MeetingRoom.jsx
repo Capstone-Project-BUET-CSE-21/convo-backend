@@ -1,35 +1,9 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState} from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import PropTypes from 'prop-types';
 import "./MeetingRoom.css";
 
-const WS_BASE = import.meta.env.VITE_MONA_API_BASE;
-
-const iceServers = [
-        {
-          urls: "stun:stun.relay.metered.ca:80",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:80",
-          username: "587fae9b9e261459032795cc",
-          credential: "V1AMbjxp0ByH3JVr",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:80?transport=tcp",
-          username: "587fae9b9e261459032795cc",
-          credential: "V1AMbjxp0ByH3JVr",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:443",
-          username: "587fae9b9e261459032795cc",
-          credential: "V1AMbjxp0ByH3JVr",
-        },
-        {
-          urls: "turns:global.relay.metered.ca:443?transport=tcp",
-          username: "587fae9b9e261459032795cc",
-          credential: "V1AMbjxp0ByH3JVr",
-        },
-      ];
+const API_BASE = import.meta.env.VITE_MONA_API_BASE;
 
 const SingleRoom = ({ meetingRoomAttributes }) => {
   const { localStream, command, isAudioEnabledPair, isVideoEnabledPair } = meetingRoomAttributes;
@@ -39,6 +13,7 @@ const SingleRoom = ({ meetingRoomAttributes }) => {
   const params = useParams();
   const roomId = params.roomId;
 
+  const serverRef = useRef(null);
   const wsRef = useRef(null);
   const pcRef = useRef(new Map());
 
@@ -131,6 +106,7 @@ const SingleRoom = ({ meetingRoomAttributes }) => {
 
     console.log(`Creating peer connection for ${peerId}`);
 
+    const iceServers = serverRef.current;
     const pc = new RTCPeerConnection({iceServers});
 
     // Add local stream tracks
@@ -251,9 +227,29 @@ const SingleRoom = ({ meetingRoomAttributes }) => {
     console.log("Left room: " + roomId);
   };
 
+  const fetchServerCredentials = async () => {
+    console.log("Fetching server credentials from backend");
+    try {
+      const response = await fetch(`https://${API_BASE}/server-credentials`, {
+        method: "GET",
+        headers: {
+          'Content-Type': 'application/json',
+          'ngrok-skip-browser-warning': 'true',  // ← Add this header
+        },
+      });
+      const data = await response.json();
+      serverRef.current = data.credentials;
+      console.log("Fetched server credentials:", serverRef.current);
+    } catch (err) {
+      console.error("Failed to fetch server credentials:", err);
+    }
+  }
+
   useEffect(() => {
+    fetchServerCredentials();
+
     console.log("Setting up WebSocket connection");
-    wsRef.current = new WebSocket(`wss://${WS_BASE}/ws`);
+    wsRef.current = new WebSocket(`wss://${API_BASE}/ws`);
 
     wsRef.current.onopen = () => {
       console.log("WebSocket connected, sending", command, "for room", roomId);
