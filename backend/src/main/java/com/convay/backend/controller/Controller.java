@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.convay.backend.JSON;
+import com.convay.backend.utilities.JSONUtils;
 
 @RestController
 public class Controller {
@@ -34,7 +34,7 @@ public class Controller {
         System.out.println("Received request for server credentials");
         
         Map<String, Object> data = Map.of("credentials", serverCredentials);
-        return JSON.stringify(data);
+        return JSONUtils.stringify(data);
     }
     
 

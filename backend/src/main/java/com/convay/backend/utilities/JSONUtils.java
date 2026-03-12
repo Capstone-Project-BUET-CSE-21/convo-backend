@@ -1,10 +1,10 @@
-package com.convay.backend;
+package com.convay.backend.utilities;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 
-public class JSON {
+public class JSONUtils {
 
     private static final ObjectMapper mapper = new ObjectMapper();
 

@@ -1,4 +1,4 @@
-package com.convay.backend;
+package com.convay.backend.utilities;
 
 public class Credentials {
     public static final String MONA_FRONTEND_URL = "https://unidealistically-unhypnotizable-lashandra.ngrok-free.dev";

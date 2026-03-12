@@ -5,7 +5,7 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import com.convay.backend.JSON;
+import com.convay.backend.utilities.JSONUtils;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -25,7 +25,7 @@ public class SignalingHandler extends TextWebSocketHandler {
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
-        Map<String, Object> data = JSON.parse(payload);
+        Map<String, Object> data = JSONUtils.parse(payload);
 
         String type = (String) data.get("type");
         String roomId = (String) data.get("roomId");
@@ -39,7 +39,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                     Map<String, Object> errorMsg = Map.of(
                         "type", "room-already-exists"
                     );
-                    session.sendMessage(new TextMessage(JSON.stringify(errorMsg)));
+                    session.sendMessage(new TextMessage(JSONUtils.stringify(errorMsg)));
                 } else {
                     rooms.put(roomId, new CopyOnWriteArraySet<>());
                     rooms.get(roomId).add(session);
@@ -54,7 +54,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                     Map<String, Object> errorMsg = Map.of(
                         "type", "room-not-found"
                     );
-                    session.sendMessage(new TextMessage(JSON.stringify(errorMsg)));
+                    session.sendMessage(new TextMessage(JSONUtils.stringify(errorMsg)));
                 } else {
                     Set<WebSocketSession> roomSessions = rooms.get(roomId);
                     roomSessions.add(session);
@@ -69,7 +69,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                     for (WebSocketSession s : roomSessions) {
                         if (!s.equals(session)) {
                             try {
-                                s.sendMessage(new TextMessage(JSON.stringify(newPeerMsg)));
+                                s.sendMessage(new TextMessage(JSONUtils.stringify(newPeerMsg)));
                             } catch (Exception e) {
                                 System.err.println("Error notifying peer about new join: " + e.getMessage());
                             }
@@ -97,7 +97,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                                     "payload", msgPayload
                                 );
                                 try {
-                                    s.sendMessage(new TextMessage(JSON.stringify(routedMsg)));
+                                    s.sendMessage(new TextMessage(JSONUtils.stringify(routedMsg)));
                                     System.out.println("Routed " + type + " from " + senderId + " to " + recipientId);
                                 } catch (Exception e) {
                                     System.err.println("Error routing message: " + e.getMessage());
@@ -116,7 +116,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                                     "payload", msgPayload
                                 );
                                 try {
-                                    s.sendMessage(new TextMessage(JSON.stringify(broadcastMsg)));
+                                    s.sendMessage(new TextMessage(JSONUtils.stringify(broadcastMsg)));
                                 } catch (Exception e) {
                                     System.err.println("Error broadcasting message: " + e.getMessage());
                                 }
@@ -153,7 +153,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                 
                 for (WebSocketSession remainingSession : roomSessions) {
                     try {
-                        remainingSession.sendMessage(new TextMessage(JSON.stringify(peerLeftMsg)));
+                        remainingSession.sendMessage(new TextMessage(JSONUtils.stringify(peerLeftMsg)));
                         System.out.println("Notified peer about " + peerId + " leaving");
                     } catch (Exception e) {
                         System.err.println("Error notifying peer about disconnect: " + e.getMessage());

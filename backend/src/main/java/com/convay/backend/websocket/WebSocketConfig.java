@@ -6,7 +6,7 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
-import com.convay.backend.Credentials;
+import com.convay.backend.utilities.Credentials;
 
 @Configuration
 @EnableWebSocket
