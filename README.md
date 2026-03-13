@@ -56,9 +56,9 @@ backend/
 │   │   │       ├── websocket/
 │   │   │       │   ├── SignalingHandler.java
 │   │   │       │   └── WebSocketConfig.java
-│   │   │       └── utils/
+│   │   │       └── utilities/
 │   │   │           ├── Credentials.java
-│   │   │           └── JSONUtilities.java
+│   │   │           └── JSONUtils.java
 │   │   └── resources/
 │   │       └── application.properties
 │   └── test/
