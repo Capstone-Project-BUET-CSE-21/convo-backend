@@ -45,7 +45,16 @@ public class SignalingHandler extends TextWebSocketHandler {
                     rooms.get(roomId).add(session);
                     // Store peerId mapping
                     sessionToRoom.put(session, roomId);
-                    System.out.println("Room " + roomId + " created by peer " + senderId);
+                    try {
+                        Map<String, Object> successMsg = Map.of(
+                            "type", "start-success",
+                            "peerId", senderId
+                        );
+                        session.sendMessage(new TextMessage(JSONUtils.stringify(successMsg)));
+                        System.out.println("Room " + roomId + " created by peer " + senderId);
+                    } catch (Exception e) {
+                        System.err.println("Error sending start success message: " + e.getMessage());
+                    }
                 }
             }
 
@@ -62,16 +71,27 @@ public class SignalingHandler extends TextWebSocketHandler {
                     sessionToRoom.put(session, roomId);
                     
                     // Notify all existing peers about the new peer joining
-                    Map<String, Object> newPeerMsg = Map.of(
-                        "type", "peer-joined",
-                        "peerId", senderId
-                    );
                     for (WebSocketSession s : roomSessions) {
                         if (!s.equals(session)) {
                             try {
+                                Map<String, Object> newPeerMsg = Map.of(
+                                    "type", "peer-joined",
+                                    "peerId", senderId
+                                );
                                 s.sendMessage(new TextMessage(JSONUtils.stringify(newPeerMsg)));
                             } catch (Exception e) {
                                 System.err.println("Error notifying peer about new join: " + e.getMessage());
+                            }
+                        } else {
+                            try{
+                                Map<String, Object> joinMsg = Map.of(
+                                    "type", "join-success",
+                                    "peerId", senderId
+                                );
+                                s.sendMessage(new TextMessage(JSONUtils.stringify(joinMsg)));
+                                System.out.println("Sent join success message to " + senderId);
+                            } catch (Exception e) {
+                                System.err.println("Error sending join success message: " + e.getMessage());
                             }
                         }
                     }
