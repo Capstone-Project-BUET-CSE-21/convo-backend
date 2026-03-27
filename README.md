@@ -22,7 +22,7 @@ https://github.com/Capstone-Project-BUET-CSE-21/convo-frontend
 
 # Project Overview
 
-Convay backend provides the server-side functionality for the application including:
+Convo backend provides the server-side functionality for the application including:
 
 * Real-time **WebSocket signalling** for collaborative communication
 * Backend configuration using **Spring Boot**
@@ -47,7 +47,7 @@ backend/
 ├── src/
 │   ├── main/
 │   │   ├── java/
-│   │   │   └── com/convay/backend/
+│   │   │   └── com/convo/backend/
 │   │   │       ├── BackendApplication.java
 │   │   │       ├── config/
 │   │   │       │   └── WebAndSecurityConfig.java
@@ -62,7 +62,7 @@ backend/
 │   │   └── resources/
 │   │       └── application.properties
 │   └── test/
-│       └── java/com/convay/backend/
+│       └── java/com/convo/backend/
 │           └── BackendApplicationTests.java
 └── target/
 .gitignore
@@ -86,7 +86,7 @@ Responsibilities:
 Location:
 
 ```
-src/main/java/com/convay/backend/
+src/main/java/com/convo/backend/
 ```
 
 ---
@@ -102,7 +102,7 @@ Responsible for configuring:
 Location:
 
 ```
-src/main/java/com/convay/backend/config/
+src/main/java/com/convo/backend/config/
 ```
 
 ---
@@ -120,7 +120,7 @@ Example endpoint functionality:
 Location:
 
 ```
-src/main/java/com/convay/backend/controller/
+src/main/java/com/convo/backend/controller/
 ```
 
 ---
@@ -138,7 +138,7 @@ Configures:
 Location:
 
 ```
-src/main/java/com/convay/backend/websocket/
+src/main/java/com/convo/backend/websocket/
 ```
 
 ---
@@ -156,7 +156,7 @@ Responsibilities:
 Location:
 
 ```
-src/main/java/com/convay/backend/websocket/
+src/main/java/com/convo/backend/websocket/
 ```
 
 ---
@@ -172,7 +172,7 @@ Utility class used for:
 Location:
 
 ```
-src/main/java/com/convay/backend/utils/
+src/main/java/com/convo/backend/utils/
 ```
 
 ---
@@ -188,7 +188,7 @@ Responsible for:
 Location:
 
 ```
-src/main/java/com/convay/backend/utils/
+src/main/java/com/convo/backend/utils/
 ```
 
 ---
@@ -233,8 +233,8 @@ mvnw
 ### Step 1 — Clone the repository
 
 ```
-git clone https://github.com/Capstone-Project-BUET-CSE-21/convay-backend
-cd convay-backend
+git clone https://github.com/Capstone-Project-BUET-CSE-21/convo-backend
+cd convo-backend
 ```
 
 ---
