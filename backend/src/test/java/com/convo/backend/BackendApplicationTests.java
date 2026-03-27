@@ -1,4 +1,4 @@
-package com.convay.backend;
+package com.convo.backend;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

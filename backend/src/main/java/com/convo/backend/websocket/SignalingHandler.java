@@ -1,11 +1,11 @@
-package com.convay.backend.websocket;
+package com.convo.backend.websocket;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import com.convay.backend.utilities.JSONUtils;
+import com.convo.backend.utilities.JSONUtils;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;

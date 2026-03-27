@@ -1,4 +1,4 @@
-package com.convay.backend.controller;
+package com.convo.backend.controller;
 
 import java.util.List;
 import java.util.Map;
@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.convay.backend.utilities.JSONUtils;
+import com.convo.backend.utilities.JSONUtils;
 
 @RestController
 public class Controller {

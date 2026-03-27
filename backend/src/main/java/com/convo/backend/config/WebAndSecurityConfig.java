@@ -1,4 +1,4 @@
-package com.convay.backend.config;
+package com.convo.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -7,7 +7,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import com.convay.backend.utilities.Credentials;
+import com.convo.backend.utilities.Credentials;
 
 
 
@@ -39,6 +39,7 @@ public class WebAndSecurityConfig {
                             Credentials.FARU_FRONTEND_URL,
                             Credentials.DEBO_FRONTEND_URL, 
                             Credentials.TABA_FRONTEND_URL,
+                            Credentials.ANIS_FRONTEND_URL,
                             "http://localhost:5173"
                         ) // allow this origin
                         .allowedMethods("GET","POST","PUT","DELETE","OPTIONS")
