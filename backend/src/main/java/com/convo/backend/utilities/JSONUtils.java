@@ -1,4 +1,4 @@
-package com.convay.backend.utilities;
+package com.convo.backend.utilities;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

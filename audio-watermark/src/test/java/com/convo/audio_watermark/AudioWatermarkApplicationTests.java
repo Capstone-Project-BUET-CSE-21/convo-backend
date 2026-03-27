@@ -1,10 +1,10 @@
-package com.convay.backend;
+package com.convo.audio_watermark;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class BackendApplicationTests {
+class AudioWatermarkApplicationTests {
 
 	@Test
 	void contextLoads() {
