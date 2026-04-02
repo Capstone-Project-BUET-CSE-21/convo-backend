@@ -1,6 +1,7 @@
 ### VS Code ###
 .vscode/
 resources/
+.env
 
 
 ### Backend ###
