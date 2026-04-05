@@ -39,7 +39,7 @@ import java.util.*;
 public class WatermarkDetectionService {
 
     /** Threshold multiplier: alpha * frameSize * pnPower * THRESHOLD_FACTOR */
-    private static final double THRESHOLD_FACTOR = 0.5;
+    private static final double THRESHOLD_FACTOR = 0.3;
 
     @Autowired
     private WatermarkConfigRepository repository;
@@ -261,15 +261,10 @@ public class WatermarkDetectionService {
         return hashString(seed);
     }
 
-    /**
-     * djb2 hash — exact port of JS hashString():
-     *   let hash = 5381;
-     *   hash = (((hash << 5) + hash) + charCode) >>> 0;
-     */
     private long hashString(String str) {
         long hash = 5381L;
         for (int i = 0; i < str.length(); i++)
-            hash = (((hash << 5) + hash) + str.charAt(i)) & 0xFFFFFFFFL;
+            hash = ((((hash & 0xFFFFFFFFL) << 5) + hash) + str.charAt(i)) & 0xFFFFFFFFL;
         return hash;
     }
 
