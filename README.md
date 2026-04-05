@@ -1,6 +1,12 @@
 # Convo Backend 
 Backend service for the Convao full-stack web application built with **Spring Boot (Java)**.
 This repository contains the **signalling server, WebSocket communication layer, backend configuration, and REST endpoints**.
+## Project Status
+
+> **Stable Branch:** `main`  
+>  
+> The `main` branch always contains stable, tested, and production-ready code.  
+
 
 Frontend Repository:
 https://github.com/Capstone-Project-BUET-CSE-21/convo-frontend
