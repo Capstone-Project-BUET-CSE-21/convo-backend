@@ -20,6 +20,7 @@ public class WatermarkConfigController {
         @RequestParam String userId
     ) {
         WatermarkConfig config = service.getOrCreateConfig(sessionId, userId);
+        System.out.println("Returning watermark config for sessionId=" + sessionId + " userId=" + userId);
 
         return Map.of(
             "seed", config.getSeed(),
