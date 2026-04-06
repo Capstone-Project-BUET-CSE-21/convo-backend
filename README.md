@@ -1,213 +1,123 @@
-# Convo Backend 
-Backend service for the Convao full-stack web application built with **Spring Boot (Java)**.
-This repository contains the **signalling server, WebSocket communication layer, backend configuration, and REST endpoints**.
+# Convo Audio Watermarking Backend
+
+Backend microservice for audio watermark configuration and detection, built with **Spring Boot (Java)**.
+This service integrates with the existing Convo frontend and focuses specifically on **audio watermark processing**.
+
+---
+
 ## Project Status
 
-> **Stable Branch:** `main`  
->  
-> The `main` branch always contains stable, tested, and production-ready code.  
+**Stable Branch:** `main`
+Production-ready and tested.
 
-
-Frontend Repository:
-https://github.com/Capstone-Project-BUET-CSE-21/convo-frontend
+Frontend:
+[https://github.com/Capstone-Project-BUET-CSE-21/convo-frontend](https://github.com/Capstone-Project-BUET-CSE-21/convo-frontend)
 
 ---
 
-# Table of Contents
+## Overview
 
-* Project Overview
-* Project Structure
-* Notable & Important Components
-* Prerequisites
-* How to Run the Backend Locally
-* Architecture
-* Technologies Used
-* Troubleshooting
+This microservice provides:
+
+* Audio **watermark configuration management**
+* Audio **watermark detection APIs**
+* REST-based communication with frontend
+* Persistent storage using JPA
 
 ---
 
-# Project Overview
-
-Convo backend provides the server-side functionality for the application including:
-
-* Real-time **WebSocket signalling** for collaborative communication
-* Backend configuration using **Spring Boot**
-* **REST API endpoints**
-* **Spring Security configuration**
-* JSON utilities and credential management
-
-The backend communicates with the React frontend through:
-
-* HTTP REST endpoints
-* WebSocket signalling messages
-
----
-
-# Project Structure
+## Project Structure
 
 ```
-backend/
-├── mvnw
-├── mvnw.cmd
+audio-watermark/
 ├── pom.xml
 ├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── com/convo/backend/
-│   │   │       ├── BackendApplication.java
-│   │   │       ├── config/
-│   │   │       │   └── WebAndSecurityConfig.java
-│   │   │       ├── controller/
-│   │   │       │   └── Controller.java
-│   │   │       ├── websocket/
-│   │   │       │   ├── SignalingHandler.java
-│   │   │       │   └── WebSocketConfig.java
-│   │   │       └── utilities/
-│   │   │           ├── Credentials.java
-│   │   │           └── JSONUtils.java
-│   │   └── resources/
-│   │       └── application.properties
-│   └── test/
-│       └── java/com/convo/backend/
-│           └── BackendApplicationTests.java
-└── target/
-.gitignore
-README.md
+│   ├── main/java/com/convo/audio_watermark/
+│   │   ├── AudioWatermarkApplication.java
+│   │   ├── config/
+│   │   │   └── WebConfig.java
+│   │   ├── controller/
+│   │   │   ├── WatermarkConfigController.java
+│   │   │   └── WatermarkDetectionController.java
+│   │   ├── dto/
+│   │   │   ├── WatermarkDetectionRequest.java
+│   │   │   └── WatermarkDetectionResponse.java
+│   │   ├── entity/
+│   │   │   └── WatermarkConfig.java
+│   │   ├── repository/
+│   │   │   └── WatermarkConfigRepository.java
+│   │   └── service/
+│   │       ├── WatermarkConfigService.java
+│   │       └── WatermarkDetectionService.java
+│   └── resources/
+│       └── application.properties
 ```
 
 ---
 
-# Notable & Important Components
+## Key Components
 
-## BackendApplication.java
+### AudioWatermarkApplication.java
 
-Spring Boot application entry point.
-
-Responsibilities:
-
-* Bootstraps the Spring Boot application
-* Initializes backend configuration
-* Starts the embedded web server
-
-Location:
-
-```
-src/main/java/com/convo/backend/
-```
+Entry point for the Spring Boot application.
 
 ---
 
-## WebAndSecurityConfig.java
+### WebConfig.java
 
-Responsible for configuring:
+Handles:
 
-* Spring Security
-* CORS policies
-* HTTP security settings
-
-Location:
-
-```
-src/main/java/com/convo/backend/config/
-```
+* CORS configuration
+* General web settings
 
 ---
 
-## Controller.java
+### Controllers
 
-Handles backend **REST API requests**.
+#### WatermarkConfigController
 
-Example endpoint functionality:
+* Manage watermark configurations
+* Create / update / retrieve settings
 
-* `/process` endpoint
-* Accepts **GET** and **POST** requests
-* Processes request data and returns JSON responses
+#### WatermarkDetectionController
 
-Location:
-
-```
-src/main/java/com/convo/backend/controller/
-```
+* Accepts audio input
+* Returns watermark detection results
 
 ---
 
-## WebSocket Components
+### DTOs
 
-### WebSocketConfig.java
-
-Configures:
-
-* WebSocket endpoints
-* Allowed origins
-* WebSocket message broker settings
-
-Location:
-
-```
-src/main/java/com/convo/backend/websocket/
-```
+* **WatermarkDetectionRequest** → Input payload
+* **WatermarkDetectionResponse** → Detection results
 
 ---
 
-### SignalingHandler.java
+### Entity
 
-Handles real-time WebSocket communication used for signalling between connected clients.
-
-Responsibilities:
-
-* Receives WebSocket messages
-* Broadcasts signalling data between participants
-* Maintains real-time communication flow
-
-Location:
-
-```
-src/main/java/com/convo/backend/websocket/
-```
+* **WatermarkConfig** → Stores watermark parameters
 
 ---
 
-## JSONUtilities.java
+### Repository
 
-Utility class used for:
-
-* JSON parsing
-* Data serialization
-* Converting Java objects into JSON strings
-
-Location:
-
-```
-src/main/java/com/convo/backend/utils/
-```
+* **WatermarkConfigRepository** → JPA-based database access
 
 ---
 
-## Credentials.java
+### Services
 
-Responsible for:
-
-* Managing authentication credentials
-* Validating credentials securely
-* Handling credential storage logic
-
-Location:
-
-```
-src/main/java/com/convo/backend/utils/
-```
+* **WatermarkConfigService** → Business logic for configs
+* **WatermarkDetectionService** → Core watermark detection logic
 
 ---
 
-# Prerequisites
+## Prerequisites
 
-Before running the backend locally ensure you have:
+* Java 21+
+* Maven 3.6+ (or use `mvnw`)
 
-### Java
-
-Java 21 or higher
-
-Check installation:
+Check:
 
 ```
 java -version
@@ -215,140 +125,82 @@ java -version
 
 ---
 
-### Maven
+## Running Locally
 
-Maven 3.6+
-
-You may also use the included Maven wrapper:
-
-```
-mvnw
-```
-
----
-
-### Optional
-
-* Git
-* VS Code / IntelliJ
-
----
-
-# How to Run the Backend Locally
-
-### Step 1 — Clone the repository
+### 1. Clone
 
 ```
 git clone https://github.com/Capstone-Project-BUET-CSE-21/convo-backend
-cd convo-backend
+cd convo-backend/audio-watermark
 ```
 
----
-
-### Step 2 — Run the Spring Boot server
-
-Using Maven wrapper:
-
-Linux / Mac:
+### 2. Run
 
 ```
 ./mvnw spring-boot:run
 ```
 
-Windows:
+(Windows)
 
 ```
 mvnw.cmd spring-boot:run
 ```
 
-Or using installed Maven:
-
-```
-mvn spring-boot:run
-```
-
 ---
 
-### Step 3 — Verify server start
-
-The backend will start on:
+### 3. Server
 
 ```
 http://localhost:8080
 ```
 
-Expected console output:
+---
+
+## Architecture
+
+Simple layered architecture:
 
 ```
-Started BackendApplication in X seconds
+Controller → Service → Repository → Database
 ```
+
+### Flow
+
+1. Frontend sends request
+2. Controller handles API
+3. Service processes logic
+4. Repository interacts with DB
+5. Response returned as JSON
 
 ---
 
-# Architecture
+## Technologies
 
-The backend provides two communication mechanisms:
-
-### REST API
-
-Frontend sends HTTP requests to backend endpoints.
-
-Example:
-
-```
-/process
-```
+* Java 21
+* Spring Boot
+* Spring Web
+* Spring Data JPA
+* Maven
 
 ---
 
-### WebSocket Signalling
+## Troubleshooting
 
-Used for real-time bidirectional communication.
-
-Flow:
-
-1. Client connects to WebSocket endpoint
-2. Signalling messages are exchanged
-3. Backend relays messages between connected clients
-
----
-
-# Technologies Used
-
-| Component               | Technology      | Version         |
-| ----------------------- | --------------- | --------------- |
-| Backend Language        | Java            | 21              |
-| Backend Framework       | Spring Boot     | 4.0.1           |
-| Security                | Spring Security | Included        |
-| Real-time Communication | WebSocket       | Native Java     |
-| ORM                     | Hibernate / JPA | Spring Included |
-
----
-
-# Troubleshooting
-
-## Backend Won't Start
-
-Check Java version:
-
-```
-java -version
-```
-
-Ensure port **8080** is free.
-
-Try rebuilding:
+**Server not starting**
 
 ```
 mvn clean install
 ```
 
+Check:
+
+* Java version
+* Port 8080 availability
+
 ---
 
-## WebSocket Connection Issues
+**API not responding**
 
-Verify:
-
-* Backend server is running
-* WebSocket endpoints are configured correctly
-* Frontend is connecting to the correct backend URL
+* Verify correct endpoint URL
+* Check backend logs
+* Ensure frontend is pointing to correct service
