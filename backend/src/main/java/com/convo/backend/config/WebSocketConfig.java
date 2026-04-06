@@ -1,10 +1,6 @@
 package com.convo.backend.config;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
@@ -22,6 +18,11 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(signalingHandler, "/ws")
-                .setAllowedOrigins("https://convo-frontend-nine.vercel.app", "https://convo-frontend-alpha.vercel.app", "http://localhost:5173");
+                .setAllowedOrigins(
+                        "http://localhost:5173",
+                        "https://convo-frontend-nine.vercel.app",
+                        "https://convo-frontend-alpha.vercel.app"
+                )
+                .withSockJS(); // Adds fallback for browsers that don't support WebSocket
     }
 }
