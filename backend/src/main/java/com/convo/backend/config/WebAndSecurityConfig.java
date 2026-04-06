@@ -32,7 +32,7 @@ public class WebAndSecurityConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**") // all endpoints
-                        .allowedOrigins("http://localhost:5173", "https://convo-frontend-nine.vercel.app") // allow both local and deployed frontend
+                        .allowedOrigins("http://localhost:5173", "https://convo-frontend-nine.vercel.app", "https://convo-frontend-alpha.vercel.app") // allow both local and deployed frontend
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }

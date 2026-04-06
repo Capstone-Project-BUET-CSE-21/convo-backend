@@ -22,6 +22,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry.addHandler(signalingHandler, "/ws")
-                .setAllowedOrigins("https://convo-frontend-nine.vercel.app", "http://localhost:5173");
+                .setAllowedOrigins("https://convo-frontend-nine.vercel.app", "https://convo-frontend-alpha.vercel.app", "http://localhost:5173");
     }
 }
