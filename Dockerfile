@@ -1,6 +1,6 @@
 # Multi-Stage Build for Spring Boot Application on Render
 # Stage 1: Build Stage
-FROM maven:3.9-eclipse-temurin-21 AS builder
+FROM maven:3.9.11-eclipse-temurin-21-noble AS builder
 
 WORKDIR /build
 
@@ -17,7 +17,7 @@ COPY backend/src src
 RUN mvn clean package -DskipTests -q
 
 # Stage 2: Runtime Stage
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:21-jre-noble
 
 # Set working directory
 WORKDIR /app

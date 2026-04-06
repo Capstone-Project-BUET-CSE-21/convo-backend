@@ -21,6 +21,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOriginPatterns(
                         "http://localhost:*",
                         "https://convo-frontend-nine.vercel.app",
-                        "https://convo-frontend-alpha.vercel.app");
+                        "https://convo-frontend-alpha.vercel.app",
+                        "https://*.vercel.app");
     }
 }

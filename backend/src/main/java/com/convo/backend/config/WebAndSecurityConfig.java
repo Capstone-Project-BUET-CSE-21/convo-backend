@@ -2,6 +2,7 @@ package com.convo.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -21,7 +22,8 @@ public class WebAndSecurityConfig {
     private static final List<String> ALLOWED_ORIGIN_PATTERNS = Arrays.asList(
             "http://localhost:*",
             "https://convo-frontend-nine.vercel.app",
-            "https://convo-frontend-alpha.vercel.app");
+            "https://convo-frontend-alpha.vercel.app",
+            "https://*.vercel.app");
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -31,7 +33,9 @@ public class WebAndSecurityConfig {
                 // disable CSRF (needed for POST requests from Postman / JS clients)
                 .csrf(csrf -> csrf.disable())
                 // allow all requests without authentication
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        .anyRequest().permitAll());
 
         return http.build();
     }
@@ -60,7 +64,8 @@ public class WebAndSecurityConfig {
                         .allowedOriginPatterns(
                                 "http://localhost:*",
                                 "https://convo-frontend-nine.vercel.app",
-                                "https://convo-frontend-alpha.vercel.app")
+                                "https://convo-frontend-alpha.vercel.app",
+                                "https://*.vercel.app")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                         .allowedHeaders("*")
                         .exposedHeaders("Authorization", "Content-Type")
