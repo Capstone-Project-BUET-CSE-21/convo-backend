@@ -1,6 +1,5 @@
 package com.convo.backend.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -35,8 +34,7 @@ public class WebAndSecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:5173",
                 "https://convo-frontend-nine.vercel.app",
-                "https://convo-frontend-alpha.vercel.app"
-        ));
+                "https://convo-frontend-alpha.vercel.app"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setExposedHeaders(Arrays.asList("Authorization", "Content-Type"));
@@ -56,10 +54,8 @@ public class WebAndSecurityConfig {
                 registry.addMapping("/**")
                         .allowedOrigins(
                                 "http://localhost:5173",
-                                "http://localhost:3000",
                                 "https://convo-frontend-nine.vercel.app",
-                                "https://convo-frontend-alpha.vercel.app"
-                        )
+                                "https://convo-frontend-alpha.vercel.app")
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                         .allowedHeaders("*")
                         .exposedHeaders("Authorization", "Content-Type")

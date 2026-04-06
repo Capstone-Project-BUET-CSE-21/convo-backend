@@ -21,8 +21,6 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 .setAllowedOrigins(
                         "http://localhost:5173",
                         "https://convo-frontend-nine.vercel.app",
-                        "https://convo-frontend-alpha.vercel.app"
-                )
-                .withSockJS(); // Adds fallback for browsers that don't support WebSocket
+                        "https://convo-frontend-alpha.vercel.app");
     }
 }
