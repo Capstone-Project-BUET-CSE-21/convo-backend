@@ -14,21 +14,6 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebAndSecurityConfig {
 
-    @Value("${MONA_FRONTEND_URL:}")
-    private String monaFrontendUrl;
-
-    @Value("${FARU_FRONTEND_URL:}")
-    private String faruFrontendUrl;
-
-    @Value("${DEBO_FRONTEND_URL:}")
-    private String deboFrontendUrl;
-
-    @Value("${TABA_FRONTEND_URL:}")
-    private String tabaFrontendUrl;
-
-    @Value("${ANIS_FRONTEND_URL:}")
-    private String anisFrontendUrl;
-
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -36,8 +21,7 @@ public class WebAndSecurityConfig {
                 .csrf(csrf -> csrf.disable())
 
                 // allow all requests without authentication
-                .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll());
+                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
 
         return http.build();
     }
@@ -48,27 +32,10 @@ public class WebAndSecurityConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**") // all endpoints
-                        .allowedOrigins(buildAllowedOrigins()) // allow this origin
+                        .allowedOrigins("http://localhost:5173") // allow this origin
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*");
             }
         };
-    }
-
-    private String[] buildAllowedOrigins() {
-        List<String> origins = new ArrayList<>();
-        addIfPresent(origins, monaFrontendUrl);
-        addIfPresent(origins, faruFrontendUrl);
-        addIfPresent(origins, deboFrontendUrl);
-        addIfPresent(origins, tabaFrontendUrl);
-        addIfPresent(origins, anisFrontendUrl);
-        origins.add("http://localhost:5173");
-        return origins.toArray(new String[0]);
-    }
-
-    private void addIfPresent(List<String> origins, String value) {
-        if (value != null && !value.isBlank()) {
-            origins.add(value);
-        }
     }
 }
