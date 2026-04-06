@@ -1,4 +1,4 @@
-package com.convo.backend.websocket;
+package com.convo.backend.config;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -9,6 +9,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
+
+import com.convo.backend.websocket.SignalingHandler;
 
 @Configuration
 @EnableWebSocket
