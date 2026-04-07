@@ -10,17 +10,17 @@ public class ServerCredentialService {
     private final List<Map<String, String>> serverCredentials = List.of(
         Map.of("urls", "stun:stun.relay.metered.ca:80"),
         Map.of("urls", "turn:global.relay.metered.ca:80",
-               "username", "587fae9b9e261459032795cc",
-               "credential", "V1AMbjxp0ByH3JVr"),
+               "username", "fcfe038eacf54e38527549ff",
+               "credential", "yCmA10XtUM7JKMZp"),
         Map.of("urls", "turn:global.relay.metered.ca:80?transport=tcp",
-                "username", "587fae9b9e261459032795cc",
-                "credential", "V1AMbjxp0ByH3JVr"),
+                "username", "fcfe038eacf54e38527549ff",
+                "credential", "yCmA10XtUM7JKMZp"),
         Map.of("urls", "turn:global.relay.metered.ca:443",
-               "username", "587fae9b9e261459032795cc",
-               "credential", "V1AMbjxp0ByH3JVr"),
+               "username", "fcfe038eacf54e38527549ff",
+               "credential", "yCmA10XtUM7JKMZp"),
         Map.of("urls", "turns:global.relay.metered.ca:443?transport=tcp",
-               "username", "587fae9b9e261459032795cc",
-               "credential", "V1AMbjxp0ByH3JVr")
+               "username", "fcfe038eacf54e38527549ff",
+               "credential", "yCmA10XtUM7JKMZp")
 
     );
 
