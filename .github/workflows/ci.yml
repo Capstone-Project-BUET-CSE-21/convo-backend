@@ -1,0 +1,52 @@
+name: Backend CI
+
+on:
+    pull_request:
+        paths:
+            - "backend/**"
+            - ".github/workflows/ci.yml"
+    push:
+        branches:
+            - main
+        paths:
+            - "backend/**"
+            - ".github/workflows/ci.yml"
+
+permissions:
+    contents: read
+
+concurrency:
+    group: backend-deploy
+    cancel-in-progress: true
+
+jobs:
+    test:
+        name: Test Backend
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: backend
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Setup Java
+              uses: actions/setup-java@v4
+              with:
+                  distribution: temurin
+                  java-version: 21
+                  cache: maven
+
+            - name: Run backend tests
+              run: ./mvnw -q clean test
+
+    deploy-production:
+        name: Deploy Backend to Render
+        needs: test
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Trigger Render deploy hook
+              env:
+                  RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL_STAGE }}
+              run: curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
