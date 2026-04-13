@@ -1,12 +1,12 @@
-package com.convo.backend.controller;
+package com.convo.backend.signalling.controller;
 
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.convo.backend.service.ServerCredentialService;
-import com.convo.backend.utilities.JSONUtils;
+import com.convo.backend.signalling.service.ServerCredentialService;
+import com.convo.backend.signalling.utilities.JSONUtils;
 
 @RestController
 @RequestMapping("/api/backend")

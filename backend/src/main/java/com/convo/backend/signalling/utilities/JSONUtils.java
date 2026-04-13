@@ -1,4 +1,4 @@
-package com.convo.backend.utilities;
+package com.convo.backend.signalling.utilities;
 
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;

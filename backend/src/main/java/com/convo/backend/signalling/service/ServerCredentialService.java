@@ -1,4 +1,4 @@
-package com.convo.backend.service;
+package com.convo.backend.signalling.service;
 
 import java.util.List;
 import java.util.Map;

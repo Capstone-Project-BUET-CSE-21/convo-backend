@@ -1,5 +1,9 @@
-package com.convo.backend.websocket;
+package com.convo.backend.signalling.websocket;
 
+import com.convo.backend.auth.entity.User;
+import com.convo.backend.auth.repository.UserRepository;
+import com.convo.backend.auth.service.JwtService;
+import com.convo.backend.signalling.service.MeetingLifecycleService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
@@ -8,12 +12,16 @@ import org.springframework.web.socket.handler.ConcurrentWebSocketSessionDecorato
 import org.springframework.web.socket.handler.SessionLimitExceededException;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
-import com.convo.backend.utilities.JSONUtils;
+import com.convo.backend.signalling.utilities.JSONUtils;
 
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.Map;
 import java.util.Set;
+import java.util.Optional;
+import java.util.UUID;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 
 @Component
 public class SignalingHandler extends TextWebSocketHandler {
@@ -25,11 +33,27 @@ public class SignalingHandler extends TextWebSocketHandler {
     private final Map<String, Set<WebSocketSession>> rooms = new ConcurrentHashMap<>();
     // Map session -> roomId for tracking which room each session belongs to
     private final Map<WebSocketSession, String> sessionToRoom = new ConcurrentHashMap<>();
+    // Map session -> authenticated userId
+    private final Map<WebSocketSession, UUID> sessionToUserId = new ConcurrentHashMap<>();
     // Map raw session -> decorated session for thread-safe buffered outbound sends
     private final Map<WebSocketSession, ConcurrentWebSocketSessionDecorator> outboundSessions = new ConcurrentHashMap<>();
 
+    private final JwtService jwtService;
+    private final UserRepository userRepository;
+    private final MeetingLifecycleService meetingLifecycleService;
+
+    public SignalingHandler(
+            JwtService jwtService,
+            UserRepository userRepository,
+            MeetingLifecycleService meetingLifecycleService) {
+        this.jwtService = jwtService;
+        this.userRepository = userRepository;
+        this.meetingLifecycleService = meetingLifecycleService;
+    }
+
     private ConcurrentWebSocketSessionDecorator getOutboundSession(WebSocketSession session) {
-        return outboundSessions.computeIfAbsent(session, s -> new ConcurrentWebSocketSessionDecorator(s, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_BYTES));
+        return outboundSessions.computeIfAbsent(session,
+                s -> new ConcurrentWebSocketSessionDecorator(s, SEND_TIME_LIMIT_MS, SEND_BUFFER_SIZE_BYTES));
     }
 
     private boolean sendToSession(
@@ -69,6 +93,46 @@ public class SignalingHandler extends TextWebSocketHandler {
         return false;
     }
 
+    private String extractTokenFromQuery(WebSocketSession session) {
+        if (session.getUri() == null || session.getUri().getQuery() == null) {
+            return null;
+        }
+
+        String query = session.getUri().getQuery();
+        for (String pair : query.split("&")) {
+            String[] keyValue = pair.split("=", 2);
+            if (keyValue.length == 2 && "token".equals(keyValue[0])) {
+                return URLDecoder.decode(keyValue[1], StandardCharsets.UTF_8);
+            }
+        }
+
+        return null;
+    }
+
+    @Override
+    public void afterConnectionEstablished(WebSocketSession session) throws Exception {
+        String token = extractTokenFromQuery(session);
+        if (token == null || token.isBlank()) {
+            session.close(CloseStatus.POLICY_VIOLATION.withReason("Missing token"));
+            return;
+        }
+
+        try {
+            String email = jwtService.extractEmail(token);
+            Optional<User> userOptional = userRepository.findByEmailIgnoreCase(email);
+
+            if (userOptional.isEmpty() || !jwtService.isTokenValid(token, userOptional.get())) {
+                session.close(CloseStatus.POLICY_VIOLATION.withReason("Invalid token"));
+                return;
+            }
+
+            sessionToUserId.put(session, userOptional.get().getId());
+            System.out.println("WebSocket authenticated for user " + userOptional.get().getId());
+        } catch (Exception e) {
+            session.close(CloseStatus.POLICY_VIOLATION.withReason("Token validation failed"));
+        }
+    }
+
     @Override
     public void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
@@ -77,6 +141,12 @@ public class SignalingHandler extends TextWebSocketHandler {
         String type = (String) data.get("type");
         String roomId = (String) data.get("roomId");
         // Object msgPayload = data.get("payload");
+
+        UUID currentUserId = sessionToUserId.get(session);
+        if (currentUserId == null) {
+            session.close(CloseStatus.POLICY_VIOLATION.withReason("Unauthenticated websocket session"));
+            return;
+        }
 
         String senderId = session.getId();
 
@@ -94,10 +164,13 @@ public class SignalingHandler extends TextWebSocketHandler {
                         rooms.put(roomId, newRoom);
                         // Store peerId mapping
                         sessionToRoom.put(session, roomId);
+
                         Map<String, Object> successMsg = Map.of(
                                 "type", "start-success",
-                                "peerId", senderId);
+                                "peerId", senderId,
+                                "userId", currentUserId.toString());
                         sendToSession(session, "start-success", "server", senderId, successMsg);
+
                         System.out.println("Room " + roomId + " created by peer " + senderId + " (Total peers: 1)");
                     }
                 }
@@ -119,16 +192,27 @@ public class SignalingHandler extends TextWebSocketHandler {
                                     "Peer " + senderId + " already in room " + roomId + ", skipping duplicate join");
                         } else {
                             roomSessions.add(session);
+                            sessionToRoom.put(session, roomId);
                         }
 
-                        // Store peerId mapping
-                        sessionToRoom.put(session, roomId);
-
-                        Map<String, Object> joinMsg = Map.of(
+                        Map<String, Object> successMsg = Map.of(
                                 "type", "join-success",
-                                "peerId", senderId);
-                        sendToSession(session, "join-success", "server", senderId, joinMsg);
+                                "peerId", senderId,
+                                "userId", currentUserId.toString());
+                        sendToSession(session, "join-success", "server", senderId, successMsg);
+
                         System.out.println("Peer " + senderId + " joined room " + roomId +
+                                " (Total peers in room: " + roomSessions.size() + ")");
+
+                        for (WebSocketSession s : roomSessions) {
+                            if (!s.equals(session) && s.isOpen()) {
+                                Map<String, Object> newPeerMsg = Map.of(
+                                        "type", "peer-joined",
+                                        "peerId", senderId);
+                                sendToSession(s, "peer-joined", senderId, s.getId(), newPeerMsg);
+                            }
+                        }
+                        System.out.println("Peer " + senderId + " ready for peers in room " + roomId +
                                 " (Total peers in room: " + roomSessions.size() + ")");
                     }
                 }
@@ -192,16 +276,6 @@ public class SignalingHandler extends TextWebSocketHandler {
                     break;
                 }
 
-                for (WebSocketSession s : roomSessions) {
-                    if (!s.equals(session) && s.isOpen()) {
-                        Map<String, Object> newPeerMsg = Map.of(
-                                "type", "peer-joined",
-                                "peerId", senderId);
-                        sendToSession(s, "peer-joined", senderId, s.getId(), newPeerMsg);
-                    }
-                }
-                System.out.println("Peer " + senderId + " ready for peers in room " + roomId +
-                        " (Total peers in room: " + roomSessions.size() + ")");
             }
 
             default -> System.out.println("Unknown message type: " + type);
@@ -213,6 +287,7 @@ public class SignalingHandler extends TextWebSocketHandler {
         // Get peerId BEFORE removing from map
         String peerId = session.getId();
         String roomId = sessionToRoom.get(session);
+        UUID userId = sessionToUserId.get(session);
 
         System.out.println("Peer " + peerId + " attempting to disconnect from room " + roomId);
 
@@ -255,8 +330,13 @@ public class SignalingHandler extends TextWebSocketHandler {
             }
         }
 
+        if (roomId != null && userId != null) {
+            meetingLifecycleService.handleMeetingLeave(roomId, userId);
+        }
+
         // Clean up mappings
         sessionToRoom.remove(session);
+        sessionToUserId.remove(session);
         outboundSessions.remove(session);
 
         System.out.println("Session " + session.getId() + " fully disconnected");
