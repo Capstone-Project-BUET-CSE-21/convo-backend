@@ -14,8 +14,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 import java.util.List;
@@ -38,18 +36,18 @@ public class WebAndSecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // CORS must be configured before Security
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                // disable CSRF (needed for POST requests from Postman / JS clients)
-                .csrf(csrf -> csrf.disable())
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        .requestMatchers("/ws/**").permitAll()
-                        .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            // CORS must be configured before Security
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // disable CSRF (needed for POST requests from Postman / JS clients)
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                .requestMatchers("/ws/**").permitAll()
+                .anyRequest().authenticated())
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -72,21 +70,5 @@ public class WebAndSecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
-    }
-
-    @Bean
-    public WebMvcConfigurer corsConfigurer() {
-        return new WebMvcConfigurer() {
-            @Override
-            public void addCorsMappings(CorsRegistry registry) {
-                registry.addMapping("/**")
-                        .allowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS.toArray(new String[0]))
-                        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
-                        .allowedHeaders("*")
-                        .exposedHeaders("Authorization", "Content-Type")
-                        .allowCredentials(true)
-                        .maxAge(3600);
-            }
-        };
     }
 }
