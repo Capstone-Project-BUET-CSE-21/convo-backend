@@ -9,6 +9,7 @@ import com.convo.backend.auth.entity.User;
 import com.convo.backend.auth.repository.UserRepository;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,24 +34,38 @@ public class AuthService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password and confirm password must match");
         }
 
-        if (userRepository.existsByEmailIgnoreCase(request.email())) {
+        String normalizedEmail = request.email().trim().toLowerCase();
+        String normalizedUserName = request.userName().trim();
+
+        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
         }
 
-        if (userRepository.existsByUserNameIgnoreCase(request.userName())) {
+        if (userRepository.existsByUserNameIgnoreCase(normalizedUserName)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Username is already taken");
         }
 
         User user = new User();
-        user.setUserName(request.userName().trim());
-        user.setEmail(request.email().trim().toLowerCase());
+        user.setUserName(normalizedUserName);
+        user.setEmail(normalizedEmail);
         user.setDisplayName(buildDisplayName(request.firstName(), request.lastName()));
         user.setPasswordHash(passwordEncoder.encode(request.password()));
 
-        User savedUser = userRepository.save(user);
-        String token = jwtService.generateToken(savedUser);
+        try {
+            User savedUser = userRepository.save(user);
+            String token = jwtService.generateToken(savedUser);
 
-        return new AuthResponse(token, "Bearer", toProfile(savedUser));
+            return new AuthResponse(token, "Bearer", toProfile(savedUser));
+        } catch (DataIntegrityViolationException ex) {
+            // Handle uniqueness races where another request inserts the same user concurrently.
+            if (userRepository.existsByUserNameIgnoreCase(normalizedUserName)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Username is already taken");
+            }
+            if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT, "Email already registered");
+            }
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "User already exists");
+        }
     }
 
     @Transactional(readOnly = true)
