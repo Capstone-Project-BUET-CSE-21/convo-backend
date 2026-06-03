@@ -52,7 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (userOptional.isPresent() && jwtService.isTokenValid(jwt, userOptional.get())) {
                     User user = userOptional.get();
-                    AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getEmail(), user.getUserName());
+                    AuthPrincipal principal = new AuthPrincipal(user.getId(), user.getEmail());
 
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             principal,

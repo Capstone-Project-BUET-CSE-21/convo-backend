@@ -19,9 +19,6 @@ public class User {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "user_name", nullable = false, unique = true, length = 100)
-    private String userName;
-
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
@@ -47,14 +44,6 @@ public class User {
 
     public void setId(UUID id) {
         this.id = id;
-    }
-
-    public String getUserName() {
-        return userName;
-    }
-
-    public void setUserName(String userName) {
-        this.userName = userName;
     }
 
     public String getEmail() {
