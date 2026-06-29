@@ -6,5 +6,8 @@ public record SignalingMessageRequest(
         String type,
         String roomId,
         String to,
-        JsonNode payload) {
+        JsonNode payload,
+        String fromName,
+        String text,
+        Long time) {
 }

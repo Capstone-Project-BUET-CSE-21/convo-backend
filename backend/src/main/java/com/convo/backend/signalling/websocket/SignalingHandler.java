@@ -182,7 +182,8 @@ public class SignalingHandler extends TextWebSocketHandler {
                             sessionToRoom.put(session, roomId);
                         }
 
-                        System.out.println("Peer " + senderId + " joined room " + roomId + " (Total peers in room: " + roomSessions.size() + ")");
+                        System.out.println("Peer " + senderId + " joined room " + roomId + " (Total peers in room: "
+                                + roomSessions.size() + ")");
 
                         for (WebSocketSession s : roomSessions) {
                             if (!s.equals(session) && s.isOpen()) {
@@ -240,6 +241,33 @@ public class SignalingHandler extends TextWebSocketHandler {
                     }
                 } else {
                     System.out.println("Error: Room " + roomId + " not found for " + type + " from " + senderId);
+                }
+            }
+            case "chat" -> {
+                Set<WebSocketSession> sessions = rooms.get(roomId);
+                if (sessions != null) {
+                    String to = data.to();
+                    boolean isDm = to != null && !to.equals("__everyone__");
+
+                    for (WebSocketSession s : sessions) {
+                        if (s.equals(session))
+                            continue;
+                        if (!s.isOpen())
+                            continue;
+
+                        if (isDm && !s.getId().equals(to))
+                            continue;
+
+                        Map<String, Object> chatMsg = Map.of(
+                                "type", "chat",
+                                "from", senderId,
+                                "fromName", data.fromName() != null ? data.fromName() : "",
+                                // ↓ recipient sees "__dm__" so frontend knows it's a DM to them
+                                "to", isDm ? "__dm__" : "__everyone__",
+                                "text", data.text() != null ? data.text() : "",
+                                "time", data.time() != null ? data.time() : System.currentTimeMillis());
+                        sendToSession(s, chatMsg);
+                    }
                 }
             }
 
