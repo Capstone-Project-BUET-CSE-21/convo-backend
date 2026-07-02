@@ -1,8 +1,8 @@
 package com.convo.backend.signalling.controller;
 
 import com.convo.backend.auth.dto.AuthPrincipal;
+import com.convo.backend.signalling.dto.MakeMeetingEntryRequest;
 import com.convo.backend.signalling.service.MeetingLifecycleService;
-import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -34,10 +34,5 @@ public class MeetingEntryController {
 
         meetingLifecycleService.makeMeetingEntry(request.command(), request.roomId(), principal.id());
         return ResponseEntity.ok(Map.of("status", "ok"));
-    }
-
-    public record MakeMeetingEntryRequest(
-            @NotBlank String command,
-            @NotBlank String roomId) {
     }
 }

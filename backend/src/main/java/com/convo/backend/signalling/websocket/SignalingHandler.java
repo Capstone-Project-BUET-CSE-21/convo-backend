@@ -243,6 +243,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                     System.out.println("Error: Room " + roomId + " not found for " + type + " from " + senderId);
                 }
             }
+            
             case "chat" -> {
                 Set<WebSocketSession> sessions = rooms.get(roomId);
                 if (sessions != null) {
