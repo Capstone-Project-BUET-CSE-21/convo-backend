@@ -164,40 +164,33 @@ public class SignalingHandler extends TextWebSocketHandler {
             }
 
             case "join" -> {
-                synchronized (rooms) {
-                    if (!rooms.containsKey(roomId)) {
-                        Map<String, Object> errorMsg = Map.of(
-                                "type", "room-not-found");
-                        sendToSession(session, errorMsg);
-                        System.out.println("Join failed: Room " + roomId + " not found for peer " + senderId);
-                    } else {
-                        Set<WebSocketSession> roomSessions = rooms.get(roomId);
+    synchronized (rooms) {
+        Set<WebSocketSession> roomSessions =
+                rooms.computeIfAbsent(roomId, id -> new CopyOnWriteArraySet<>());
 
-                        // Prevent duplicate joins - check if already in room
-                        if (roomSessions.contains(session)) {
-                            System.out.println(
-                                    "Peer " + senderId + " already in room " + roomId + ", skipping duplicate join");
-                        } else {
-                            roomSessions.add(session);
-                            sessionToRoom.put(session, roomId);
-                        }
+        if (roomSessions.contains(session)) {
+            System.out.println(
+                    "Peer " + senderId + " already in room " + roomId + ", skipping duplicate join");
+        } else {
+            roomSessions.add(session);
+            sessionToRoom.put(session, roomId);
+        }
 
-                        System.out.println("Peer " + senderId + " joined room " + roomId + " (Total peers in room: "
-                                + roomSessions.size() + ")");
+        System.out.println("Peer " + senderId + " joined room " + roomId + " (Total peers in room: "
+                + roomSessions.size() + ")");
 
-                        for (WebSocketSession s : roomSessions) {
-                            if (!s.equals(session) && s.isOpen()) {
-                                Map<String, Object> newPeerMsg = Map.of(
-                                        "type", "peer-joined",
-                                        "peerId", senderId);
-                                sendToSession(s, newPeerMsg);
-                            }
-                        }
-                        System.out.println("Peer " + senderId + " ready for peers in room " + roomId +
-                                " (Total peers in room: " + roomSessions.size() + ")");
-                    }
-                }
+        for (WebSocketSession s : roomSessions) {
+            if (!s.equals(session) && s.isOpen()) {
+                Map<String, Object> newPeerMsg = Map.of(
+                        "type", "peer-joined",
+                        "peerId", senderId);
+                sendToSession(s, newPeerMsg);
             }
+        }
+        System.out.println("Peer " + senderId + " ready for peers in room " + roomId +
+                " (Total peers in room: " + roomSessions.size() + ")");
+    }
+}
 
             case "offer", "answer", "ice" -> {
                 String recipientId = data.to();
