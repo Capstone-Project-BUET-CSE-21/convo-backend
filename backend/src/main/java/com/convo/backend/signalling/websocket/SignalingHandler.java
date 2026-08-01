@@ -192,7 +192,7 @@ public class SignalingHandler extends TextWebSocketHandler {
     }
 }
 
-            case "offer", "answer", "ice" -> {
+            case "offer", "answer", "ice", "video-state" -> {
                 String recipientId = data.to();
                 Set<WebSocketSession> sessions = rooms.get(roomId);
 
