@@ -183,7 +183,8 @@ public class SignalingHandler extends TextWebSocketHandler {
             if (!s.equals(session) && s.isOpen()) {
                 Map<String, Object> newPeerMsg = Map.of(
                         "type", "peer-joined",
-                        "peerId", senderId);
+                        "peerId", senderId,
+                        "userId", currentUserId.toString());
                 sendToSession(s, newPeerMsg);
             }
         }
