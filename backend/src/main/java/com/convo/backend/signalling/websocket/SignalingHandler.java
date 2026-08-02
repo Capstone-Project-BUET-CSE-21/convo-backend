@@ -312,7 +312,7 @@ public class SignalingHandler extends TextWebSocketHandler {
 
             for (WebSocketSession remainingSession : roomSessions) {
                 if (sendToSession(remainingSession, peerLeftMsg)) {
-                    System.out.println("[LEAVE-DEBUG] " + System.currentTimeMillis() + " Notified peer about " + peerId + " leaving");
+                    System.out.println(System.currentTimeMillis() + " Notified peer about " + peerId + " leaving");
                 }
             }
 
