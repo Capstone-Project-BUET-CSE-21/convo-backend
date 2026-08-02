@@ -266,56 +266,74 @@ public class SignalingHandler extends TextWebSocketHandler {
                 }
             }
 
+            case "leave" -> {
+                removePeerFromRoom(session, roomId);
+            }
+
             default -> System.out.println("Unknown message type: " + type);
+        }
+    }
+
+    // Removes a session from its room and broadcasts peer-left to whoever
+    // remains. Called both from the explicit "leave" message (fast path,
+    // fired the instant the user clicks Leave, while the socket is still
+    // open) and from afterConnectionClosed (fallback for ungraceful
+    // disconnects — tab close, network loss, etc). Idempotent: roomSessions
+    // .remove() returns false on the second call for the same session, so a
+    // "leave" message followed by the eventual afterConnectionClosed never
+    // double-broadcasts.
+    private void removePeerFromRoom(WebSocketSession session, String roomId) {
+        if (roomId == null) {
+            return;
+        }
+
+        String peerId = session.getId();
+
+        synchronized (rooms) {
+            Set<WebSocketSession> roomSessions = rooms.get(roomId);
+            if (roomSessions == null) {
+                return;
+            }
+
+            boolean wasRemoved = roomSessions.remove(session);
+            if (!wasRemoved) {
+                return;
+            }
+
+            System.out.println("Peer " + peerId + " removed from room " + roomId);
+
+            // Clean up any other dead sessions in this room
+            roomSessions.removeIf(s -> !s.isOpen());
+
+            // Notify remaining peers that this peer left
+            Map<String, Object> peerLeftMsg = Map.of(
+                    "type", "peer-left",
+                    "peerId", peerId);
+
+            for (WebSocketSession remainingSession : roomSessions) {
+                if (sendToSession(remainingSession, peerLeftMsg)) {
+                    System.out.println("[LEAVE-DEBUG] " + System.currentTimeMillis() + " Notified peer about " + peerId + " leaving");
+                }
+            }
+
+            // Clean up empty rooms
+            if (roomSessions.isEmpty()) {
+                rooms.remove(roomId);
+                System.out.println("Room " + roomId + " is now empty and has been removed");
+            } else {
+                System.out.println("Peer " + peerId + " left room " + roomId +
+                        " (Remaining peers: " + roomSessions.size() + ")");
+            }
         }
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         // Get peerId BEFORE removing from map
-        String peerId = session.getId();
         String roomId = sessionToRoom.get(session);
         UUID userId = sessionToUserId.get(session);
 
-        System.out.println("Peer " + peerId + " attempting to disconnect from room " + roomId);
-
-        // Remove session from room and notify others
-        if (roomId != null) {
-            synchronized (rooms) {
-                Set<WebSocketSession> roomSessions = rooms.get(roomId);
-                if (roomSessions != null) {
-                    // Remove this session
-                    boolean wasRemoved = roomSessions.remove(session);
-
-                    if (wasRemoved) {
-                        System.out.println("Peer " + peerId + " removed from room " + roomId);
-
-                        // Clean up any other dead sessions in this room
-                        roomSessions.removeIf(s -> !s.isOpen());
-
-                        // Notify remaining peers that this peer left
-                        Map<String, Object> peerLeftMsg = Map.of(
-                                "type", "peer-left",
-                                "peerId", peerId);
-
-                        for (WebSocketSession remainingSession : roomSessions) {
-                            if (sendToSession(remainingSession, peerLeftMsg)) {
-                                System.out.println("Notified peer about " + peerId + " leaving");
-                            }
-                        }
-
-                        // Clean up empty rooms
-                        if (roomSessions.isEmpty()) {
-                            rooms.remove(roomId);
-                            System.out.println("Room " + roomId + " is now empty and has been removed");
-                        } else {
-                            System.out.println("Peer " + peerId + " left room " + roomId +
-                                    " (Remaining peers: " + roomSessions.size() + ")");
-                        }
-                    }
-                }
-            }
-        }
+        removePeerFromRoom(session, roomId);
 
         if (roomId != null && userId != null) {
             meetingLifecycleService.handleMeetingLeave(roomId, userId);
