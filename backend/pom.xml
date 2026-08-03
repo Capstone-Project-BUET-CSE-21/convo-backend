@@ -129,6 +129,18 @@
 							<groupId>org.projectlombok</groupId>
 							<artifactId>lombok</artifactId>
 						</path>
+						<!-- Declaring this list explicitly replaces default
+						     classpath-based processor discovery entirely — the
+						     configuration-processor dependency above being on the
+						     classpath isn't enough on its own, it has to be listed
+						     here too, or spring-configuration-metadata.json (what
+						     the IDE uses to know app.jwt.secret/app.jwt.expiration-ms
+						     are real properties) never gets generated. -->
+						<path>
+							<groupId>org.springframework.boot</groupId>
+							<artifactId>spring-boot-configuration-processor</artifactId>
+							<version>${project.parent.version}</version>
+						</path>
 					</annotationProcessorPaths>
 				</configuration>
 			</plugin>
