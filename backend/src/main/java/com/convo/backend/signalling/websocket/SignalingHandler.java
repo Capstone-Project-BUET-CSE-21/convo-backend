@@ -158,42 +158,63 @@ public class SignalingHandler extends TextWebSocketHandler {
                         // Store peerId mapping
                         sessionToRoom.put(session, roomId);
 
+                        // Tell the creator its own peer id so it can run the
+                        // deterministic-initiator rule (smaller id offers) when
+                        // reconciling connections later on.
+                        Map<String, Object> selfMsg = Map.of(
+                                "type", "room-created",
+                                "selfId", senderId);
+                        sendToSession(session, selfMsg);
+
                         System.out.println("Room " + roomId + " created by peer " + senderId + " (Total peers: 1)");
                     }
                 }
             }
 
             case "join" -> {
-    synchronized (rooms) {
-        Set<WebSocketSession> roomSessions =
-                rooms.computeIfAbsent(roomId, id -> new CopyOnWriteArraySet<>());
+                synchronized (rooms) {
+                    Set<WebSocketSession> roomSessions =
+                            rooms.computeIfAbsent(roomId, id -> new CopyOnWriteArraySet<>());
 
-        if (roomSessions.contains(session)) {
-            System.out.println(
-                    "Peer " + senderId + " already in room " + roomId + ", skipping duplicate join");
-        } else {
-            roomSessions.add(session);
-            sessionToRoom.put(session, roomId);
-        }
+                    if (roomSessions.contains(session)) {
+                        System.out.println(
+                                "Peer " + senderId + " already in room " + roomId + ", skipping duplicate join");
+                    } else {
+                        roomSessions.add(session);
+                        sessionToRoom.put(session, roomId);
+                    }
 
-        System.out.println("Peer " + senderId + " joined room " + roomId + " (Total peers in room: "
-                + roomSessions.size() + ")");
+                    System.out.println("Peer " + senderId + " joined room " + roomId + " (Total peers in room: "
+                            + roomSessions.size() + ")");
+                    
+                    java.util.List<Map<String, Object>> existingPeers = new java.util.ArrayList<>();
+                    for (WebSocketSession s : roomSessions) {
+                        if (!s.equals(session) && s.isOpen()) {
+                            Map<String, Object> newPeerMsg = Map.of(
+                                    "type", "peer-joined",
+                                    "peerId", senderId,
+                                    "userId", currentUserId.toString());
+                            sendToSession(s, newPeerMsg);
 
-        for (WebSocketSession s : roomSessions) {
-            if (!s.equals(session) && s.isOpen()) {
-                Map<String, Object> newPeerMsg = Map.of(
-                        "type", "peer-joined",
-                        "peerId", senderId,
-                        "userId", currentUserId.toString());
-                sendToSession(s, newPeerMsg);
+                            UUID peerUserId = sessionToUserId.get(s);
+                            existingPeers.add(Map.of(
+                                    "peerId", s.getId(),
+                                    "userId", peerUserId != null ? peerUserId.toString() : ""));
+                        }
+                    }
+                    
+                    Map<String, Object> rosterMsg = Map.of(
+                            "type", "existing-peers",
+                            "selfId", senderId,
+                            "peers", existingPeers);
+                    sendToSession(session, rosterMsg);
+
+                    System.out.println("Peer " + senderId + " ready for peers in room " + roomId +
+                            " (Total peers in room: " + roomSessions.size() + ")");
+                }
             }
-        }
-        System.out.println("Peer " + senderId + " ready for peers in room " + roomId +
-                " (Total peers in room: " + roomSessions.size() + ")");
-    }
-}
 
-            case "offer", "answer", "ice", "video-state", "audio-state" -> {
+            case "offer", "answer", "ice", "video-state", "audio-state", "request-offer" -> {
                 String recipientId = data.to();
                 Set<WebSocketSession> sessions = rooms.get(roomId);
 
@@ -209,7 +230,9 @@ public class SignalingHandler extends TextWebSocketHandler {
                         for (WebSocketSession s : sessions) {
                             String sId = s.getId();
                             if (sId.equals(recipientId) && !s.equals(session)) {
-                                Object msgPayload = data.payload();
+                                // request-offer carries no payload; Map.of rejects
+                                // null values, so fall back to an empty map.
+                                Object msgPayload = data.payload() != null ? data.payload() : Map.of();
                                 Map<String, Object> routedMsg = Map.of(
                                         "type", type,
                                         "from", senderId,
@@ -224,7 +247,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                         // Broadcast to all other peers
                         for (WebSocketSession s : sessions) {
                             if (!s.equals(session) && s.isOpen()) {
-                                Object msgPayload = data.payload();
+                                Object msgPayload = data.payload() != null ? data.payload() : Map.of();
                                 Map<String, Object> broadcastMsg = Map.of(
                                         "type", type,
                                         "from", senderId,
