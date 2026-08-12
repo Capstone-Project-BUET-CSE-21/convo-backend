@@ -12,20 +12,20 @@ public class ServerCredentialService {
     new ServerCredentialDto("stun:stun.relay.metered.ca:80", null, null),
     new ServerCredentialDto(
         "turn:global.relay.metered.ca:80",
-        "fcfe038eacf54e38527549ff",
-        "yCmA10XtUM7JKMZp"),
+        "587fae9b9e261459032795cc",
+        "V1AMbjxp0ByH3JVr"),
     new ServerCredentialDto(
         "turn:global.relay.metered.ca:80?transport=tcp",
-        "fcfe038eacf54e38527549ff",
-        "yCmA10XtUM7JKMZp"),
+        "587fae9b9e261459032795cc",
+        "V1AMbjxp0ByH3JVr"),
     new ServerCredentialDto(
         "turn:global.relay.metered.ca:443",
-        "fcfe038eacf54e38527549ff",
-        "yCmA10XtUM7JKMZp"),
+        "587fae9b9e261459032795cc",
+        "V1AMbjxp0ByH3JVr"),
     new ServerCredentialDto(
         "turns:global.relay.metered.ca:443?transport=tcp",
-        "fcfe038eacf54e38527549ff",
-        "yCmA10XtUM7JKMZp")
+        "587fae9b9e261459032795cc",
+        "V1AMbjxp0ByH3JVr")
 
     );
 
