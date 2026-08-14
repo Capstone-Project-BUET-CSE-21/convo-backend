@@ -26,7 +26,6 @@ public class ServerCredentialService {
         "turns:global.relay.metered.ca:443?transport=tcp",
         "587fae9b9e261459032795cc",
         "V1AMbjxp0ByH3JVr")
-
     );
 
     public List<ServerCredentialDto> getServerCredentials() {
