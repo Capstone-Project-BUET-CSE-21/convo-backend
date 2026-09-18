@@ -46,6 +46,10 @@ public class WebAndSecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/ws/**").permitAll()
+                // Server-to-server only, gated by its own X-Internal-Service-Key
+                // check (InternalMeetingController) instead of the per-user JWT
+                // filter — there's no logged-in user on these calls.
+                .requestMatchers("/api/internal/**").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

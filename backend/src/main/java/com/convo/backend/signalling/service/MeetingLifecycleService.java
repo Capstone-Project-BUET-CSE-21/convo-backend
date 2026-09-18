@@ -2,6 +2,7 @@ package com.convo.backend.signalling.service;
 
 import com.convo.backend.auth.entity.User;
 import com.convo.backend.auth.repository.UserRepository;
+import com.convo.backend.signalling.dto.MeetingParticipantDto;
 import com.convo.backend.signalling.entity.Meeting;
 import com.convo.backend.signalling.entity.MeetingUser;
 import com.convo.backend.signalling.repository.MeetingRepository;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -122,5 +124,20 @@ public class MeetingLifecycleService {
             meeting.setEndedAt(Instant.now());
             meetingRepository.save(meeting);
         }
+    }
+
+    // Backs InternalMeetingController — the one place other services (e.g.
+    // convo-file-sharing's authorization check) read meeting membership
+    // from, over HTTP, instead of holding their own copy of it or reaching
+    // into this table directly. 404s rather than returning an empty list
+    // for an unknown meeting code, so a caller can tell "no one has joined
+    // yet" apart from "this meeting code doesn't exist."
+    public List<MeetingParticipantDto> listParticipants(String meetingCode) {
+        Meeting meeting = meetingRepository.findByMeetingCode(meetingCode)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Meeting not found"));
+
+        return meetingUserRepository.findByMeeting(meeting).stream()
+                .map(mu -> new MeetingParticipantDto(mu.getUser().getId(), mu.getUser().getDisplayName(), mu.getJoinedAt()))
+                .toList();
     }
 }
