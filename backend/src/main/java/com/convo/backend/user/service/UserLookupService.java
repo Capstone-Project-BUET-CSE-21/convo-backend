@@ -21,7 +21,7 @@ import java.util.UUID;
  * hop outside the viewer's own live meeting signaling.
  *
  * Deliberately returns PublicUserResponse (id + displayName only, no
- * email) since, unlike /api/auth/me, this is reachable for arbitrary user
+ * email) since, unlike /api/backend/auth/me, this is reachable for arbitrary user
  * ids by any authenticated caller.
  */
 @Service

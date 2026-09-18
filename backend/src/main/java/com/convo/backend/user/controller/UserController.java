@@ -15,13 +15,13 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Deliberately NOT under /api/auth/** — that prefix is permitAll in
+ * Deliberately NOT under /api/backend/auth/** — that prefix is permitAll in
  * WebAndSecurityConfig (signup/login must be reachable pre-token), whereas
  * looking up another user's name should require a valid session like every
  * other endpoint (anyRequest().authenticated() covers this path already).
  */
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping("/api/backend/users")
 public class UserController {
 
     private final UserLookupService service;
@@ -30,13 +30,13 @@ public class UserController {
         this.service = service;
     }
 
-    // GET /api/users/{id} — single lookup, e.g. resolving one chain hop.
+    // GET /api/backend/users/{id} — single lookup, e.g. resolving one chain hop.
     @GetMapping("/{id}")
     public PublicUserResponse getById(@PathVariable UUID id) {
         return service.getById(id);
     }
 
-    // POST /api/users/batch — resolve every hop in a trace in one round trip
+    // POST /api/backend/users/batch — resolve every hop in a trace in one round trip
     // instead of one request per distinct sender. Body: { "ids": [uuid, ...] }.
     @PostMapping("/batch")
     public List<PublicUserResponse> getByIds(@Valid @RequestBody UserBatchRequest request) {

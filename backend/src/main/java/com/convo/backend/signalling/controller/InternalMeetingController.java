@@ -21,11 +21,11 @@ import java.util.List;
 // with), never a user JWT: there is no logged-in user on this call, just
 // one Convo service asking another for data it owns rather than keeping
 // its own copy or reaching into its tables directly. See
-// WebAndSecurityConfig — /api/internal/** is permitAll at the Spring
+// WebAndSecurityConfig — /api/backend/internal/** is permitAll at the Spring
 // Security layer specifically so this header check is what gates it,
 // instead of the normal per-user JWT filter.
 @RestController
-@RequestMapping("/api/internal")
+@RequestMapping("/api/backend/internal")
 public class InternalMeetingController {
 
     private static final String SERVICE_KEY_HEADER = "X-Internal-Service-Key";

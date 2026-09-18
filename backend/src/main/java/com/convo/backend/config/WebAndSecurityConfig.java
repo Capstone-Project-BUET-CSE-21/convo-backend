@@ -43,13 +43,13 @@ public class WebAndSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/backend/auth/**").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 // Server-to-server only, gated by its own X-Internal-Service-Key
                 // check (InternalMeetingController) instead of the per-user JWT
                 // filter — there's no logged-in user on these calls.
-                .requestMatchers("/api/internal/**").permitAll()
+                .requestMatchers("/api/backend/internal/**").permitAll()
                 .anyRequest().authenticated())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
