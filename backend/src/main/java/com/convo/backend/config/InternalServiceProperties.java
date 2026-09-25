@@ -7,11 +7,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.Objects;
 
 // app.internal.service-key must be set (INTERNAL_SERVICE_KEY env var) —
-// deliberately no fallback default here. app.jwt.secret's placeholder
-// default (see JwtProperties/application.properties) is a known hardening
-// gap: a deployment that forgets to set it fails silently into a
-// guessable, working signing key instead of failing to start. This
-// property fails startup loudly instead if it's ever left unset.
+// deliberately no fallback default, so startup fails loudly if it's ever
+// left unset. That relies on its placeholder in application.properties
+// having an EMPTY default (${INTERNAL_SERVICE_KEY:}): with none at all,
+// Spring binds an unset variable as the literal text
+// "${INTERNAL_SERVICE_KEY}", which would sail through the blank check
+// below. app.jwt.secret follows the same rule (see JwtService).
 @ConfigurationProperties(prefix = "app.internal")
 public class InternalServiceProperties {
 

@@ -58,7 +58,9 @@ public class JwtService {
 
     private SecretKey buildSigningKey(String secret) {
         if (secret == null || secret.isBlank()) {
-            throw new IllegalArgumentException("app.jwt.secret must be configured");
+            throw new IllegalArgumentException(
+                    "app.jwt.secret (JWT_SECRET) must be set — it signs login tokens, and "
+                            + "convo-file-sharing and convo-audio-watermark must be given the same value.");
         }
 
         try {
@@ -72,7 +74,7 @@ public class JwtService {
 
         byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
         if (raw.length < 32) {
-            throw new IllegalArgumentException("app.jwt.secret must be at least 32 bytes");
+            throw new IllegalArgumentException("app.jwt.secret (JWT_SECRET) must be at least 32 bytes");
         }
         return Keys.hmacShaKeyFor(raw);
     }
