@@ -43,7 +43,10 @@ public class WebAndSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/backend/auth/**").permitAll()
+                // Only signup/login are pre-token-reachable. /me deliberately
+                // is NOT listed here — it falls through to anyRequest()
+                // .authenticated() below, same as any other protected route.
+                .requestMatchers(HttpMethod.POST, "/api/backend/auth/signup", "/api/backend/auth/login").permitAll()
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 // Server-to-server only, gated by its own X-Internal-Service-Key

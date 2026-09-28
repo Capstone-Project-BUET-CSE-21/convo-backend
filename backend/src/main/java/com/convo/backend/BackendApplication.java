@@ -32,6 +32,9 @@ public class BackendApplication {
         setPropertyIfPresent("spring-datasource-password", resolveValue("DB_PASS", localDotenv));
         setPropertyIfPresent("INTERNAL_SERVICE_KEY", resolveValue("INTERNAL_SERVICE_KEY", localDotenv));
         setPropertyIfPresent("JWT_SECRET", resolveValue("JWT_SECRET", localDotenv));
+        setPropertyIfPresent("JWT_EXPIRATION_MS", resolveValue("JWT_EXPIRATION_MS", localDotenv));
+        setPropertyIfPresent("TURN_USERNAME", resolveValue("TURN_USERNAME", localDotenv));
+        setPropertyIfPresent("TURN_CREDENTIAL", resolveValue("TURN_CREDENTIAL", localDotenv));
 
         SpringApplication.run(BackendApplication.class, args);
     }

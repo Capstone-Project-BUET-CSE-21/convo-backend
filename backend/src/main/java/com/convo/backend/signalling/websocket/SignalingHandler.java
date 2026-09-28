@@ -5,6 +5,8 @@ import com.convo.backend.auth.repository.UserRepository;
 import com.convo.backend.auth.service.JwtService;
 import com.convo.backend.signalling.dto.SignalingMessageRequest;
 import com.convo.backend.signalling.service.MeetingLifecycleService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
@@ -25,6 +27,8 @@ import java.nio.charset.StandardCharsets;
 
 @Component
 public class SignalingHandler extends TextWebSocketHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(SignalingHandler.class);
 
     private static final int SEND_TIME_LIMIT_MS = 10_000;
     private static final int SEND_BUFFER_SIZE_BYTES = 1024 * 1024;
@@ -64,8 +68,7 @@ public class SignalingHandler extends TextWebSocketHandler {
             Object payload) {
         // Check if session is still open before attempting to send
         if (!targetSession.isOpen()) {
-            System.out.println(
-                    "Session already closed, skipping send sessionId=" + targetSession.getId());
+            log.debug("Session already closed, skipping send sessionId={}", targetSession.getId());
             return false;
         }
 
@@ -74,14 +77,9 @@ public class SignalingHandler extends TextWebSocketHandler {
             outboundSession.sendMessage(new TextMessage(objectMapper.writeValueAsString(payload)));
             return true;
         } catch (SessionLimitExceededException e) {
-            System.err.println(
-                    "Session limit exceeded while sending sessionId=" + targetSession.getId() +
-                            " reason=" + e.getMessage());
+            log.warn("Session limit exceeded while sending sessionId={} reason={}", targetSession.getId(), e.getMessage());
         } catch (Exception e) {
-            System.err.println(
-                    "Send failed for sessionId=" + targetSession.getId() +
-                            " exception=" + e.getClass().getSimpleName() +
-                            " message=" + e.getMessage());
+            log.warn("Send failed for sessionId={} exception={} message={}", targetSession.getId(), e.getClass().getSimpleName(), e.getMessage());
         }
 
         return false;
@@ -121,7 +119,7 @@ public class SignalingHandler extends TextWebSocketHandler {
             }
 
             sessionToUserId.put(session, userOptional.get().getId());
-            System.out.println("WebSocket authenticated for user " + userOptional.get().getId());
+            log.info("WebSocket authenticated for user {}", userOptional.get().getId());
         } catch (Exception e) {
             session.close(CloseStatus.POLICY_VIOLATION.withReason("Token validation failed"));
         }
@@ -150,7 +148,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                         Map<String, Object> errorMsg = Map.of(
                                 "type", "room-already-exists");
                         sendToSession(session, errorMsg);
-                        System.out.println("Start failed: Room " + roomId + " already exists");
+                        log.info("Start failed: room {} already exists", roomId);
                     } else {
                         Set<WebSocketSession> newRoom = new CopyOnWriteArraySet<>();
                         newRoom.add(session);
@@ -166,7 +164,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                                 "selfId", senderId);
                         sendToSession(session, selfMsg);
 
-                        System.out.println("Room " + roomId + " created by peer " + senderId + " (Total peers: 1)");
+                        log.info("Room {} created by peer {} (total peers: 1)", roomId, senderId);
                     }
                 }
             }
@@ -177,15 +175,13 @@ public class SignalingHandler extends TextWebSocketHandler {
                             rooms.computeIfAbsent(roomId, id -> new CopyOnWriteArraySet<>());
 
                     if (roomSessions.contains(session)) {
-                        System.out.println(
-                                "Peer " + senderId + " already in room " + roomId + ", skipping duplicate join");
+                        log.debug("Peer {} already in room {}, skipping duplicate join", senderId, roomId);
                     } else {
                         roomSessions.add(session);
                         sessionToRoom.put(session, roomId);
                     }
 
-                    System.out.println("Peer " + senderId + " joined room " + roomId + " (Total peers in room: "
-                            + roomSessions.size() + ")");
+                    log.info("Peer {} joined room {} (total peers in room: {})", senderId, roomId, roomSessions.size());
                     
                     java.util.List<Map<String, Object>> existingPeers = new java.util.ArrayList<>();
                     for (WebSocketSession s : roomSessions) {
@@ -209,8 +205,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                             "peers", existingPeers);
                     sendToSession(session, rosterMsg);
 
-                    System.out.println("Peer " + senderId + " ready for peers in room " + roomId +
-                            " (Total peers in room: " + roomSessions.size() + ")");
+                    log.info("Peer {} ready for peers in room {} (total peers in room: {})", senderId, roomId, roomSessions.size());
                 }
             }
 
@@ -221,7 +216,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                 if (sessions != null) {
                     // Verify sender is actually in the room
                     if (!sessions.contains(session)) {
-                        System.out.println("Error: Sender " + senderId + " not in room " + roomId);
+                        log.warn("Sender {} not in room {}", senderId, roomId);
                         break;
                     }
 
@@ -238,7 +233,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                                         "from", senderId,
                                         "payload", msgPayload);
                                 if (sendToSession(s, routedMsg)) {
-                                    System.out.println("Routed " + type + " from " + senderId + " to " + recipientId);
+                                    log.debug("Routed {} from {} to {}", type, senderId, recipientId);
                                 }
                                 break;
                             }
@@ -257,7 +252,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                         }
                     }
                 } else {
-                    System.out.println("Error: Room " + roomId + " not found for " + type + " from " + senderId);
+                    log.warn("Room {} not found for {} from {}", roomId, type, senderId);
                 }
             }
             
@@ -293,7 +288,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                 removePeerFromRoom(session, roomId);
             }
 
-            default -> System.out.println("Unknown message type: " + type);
+            default -> log.warn("Unknown message type: {}", type);
         }
     }
 
@@ -323,7 +318,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                 return;
             }
 
-            System.out.println("Peer " + peerId + " removed from room " + roomId);
+            log.info("Peer {} removed from room {}", peerId, roomId);
 
             // Clean up any other dead sessions in this room
             roomSessions.removeIf(s -> !s.isOpen());
@@ -334,18 +329,15 @@ public class SignalingHandler extends TextWebSocketHandler {
                     "peerId", peerId);
 
             for (WebSocketSession remainingSession : roomSessions) {
-                if (sendToSession(remainingSession, peerLeftMsg)) {
-                    System.out.println(System.currentTimeMillis() + " Notified peer about " + peerId + " leaving");
-                }
+                sendToSession(remainingSession, peerLeftMsg);
             }
 
             // Clean up empty rooms
             if (roomSessions.isEmpty()) {
                 rooms.remove(roomId);
-                System.out.println("Room " + roomId + " is now empty and has been removed");
+                log.info("Room {} is now empty and has been removed", roomId);
             } else {
-                System.out.println("Peer " + peerId + " left room " + roomId +
-                        " (Remaining peers: " + roomSessions.size() + ")");
+                log.info("Peer {} left room {} (remaining peers: {})", peerId, roomId, roomSessions.size());
             }
         }
     }
@@ -367,6 +359,6 @@ public class SignalingHandler extends TextWebSocketHandler {
         sessionToUserId.remove(session);
         outboundSessions.remove(session);
 
-        System.out.println("Session " + session.getId() + " fully disconnected");
+        log.info("Session {} fully disconnected", session.getId());
     }
 }

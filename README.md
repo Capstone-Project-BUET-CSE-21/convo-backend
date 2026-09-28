@@ -1,351 +1,122 @@
-# Convo Signalling Server 
-This backend service for the Convao full-stack web application built with **Spring Boot (Java)**.
-This repository contains the **signalling server, WebSocket communication layer, backend configuration, and REST endpoints**.
+# Convo Backend
 
-Frontend Repository:  
-https://github.com/Capstone-Project-BUET-CSE-21/convo-frontend
+Spring Boot (Java 21) backend for **Convo**. This repository owns authentication, WebRTC call signalling, and meeting lifecycle — it never touches media (video/audio/file bytes go directly between browsers, or through a TURN relay).
 
-Audio Watermarking Microservice Backend:  
-https://github.com/Capstone-Project-BUET-CSE-21/convo-audio-watermarking
+Other repositories:
 
----
-
-# Table of Contents
-
-* Project Overview
-* Project Structure
-* Notable & Important Components
-* Prerequisites
-* How to Run the Backend Locally
-* Architecture
-* Technologies Used
-* Troubleshooting
+- Frontend: https://github.com/Capstone-Project-BUET-CSE-21/convo-frontend
+- Audio watermarking service: https://github.com/Capstone-Project-BUET-CSE-21/convo-audio-watermarking
+- File sharing / provenance service: convo-file-sharing (sibling repo)
 
 ---
 
-# Project Overview
+## Project overview
 
-Convo backend provides the server-side functionality for the application including:
-
-* Real-time **WebSocket signalling** for collaborative communication
-* Backend configuration using **Spring Boot**
-* **REST API endpoints**
-* **Spring Security configuration**
-* JSON utilities and credential management
-
-The backend communicates with the React frontend through:
-
-* HTTP REST endpoints
-* WebSocket signalling messages
+- **Auth** — signup/login (BCrypt password hashing), JWT issuance and validation.
+- **Signalling** — a single authenticated WebSocket endpoint (`/ws`) that relays WebRTC offers/answers/ICE candidates, chat messages, and mute/camera state between peers in a room. Pure relay: no media passes through this service.
+- **Meeting lifecycle** — persists `Meeting`/`MeetingUser` rows (who joined which meeting, when).
+- **TURN/STUN credential hand-out** — a REST endpoint that returns ICE server credentials to authenticated clients.
+- **Internal service-to-service API** — lets `convo-file-sharing` and `convo-audio-watermark` check meeting participation without holding a copy of this service's data, authenticated by a shared key rather than a user JWT.
 
 ---
 
-# Project Structure
+## Project structure
 
 ```
 backend/
-├── mvnw
-├── mvnw.cmd
-├── pom.xml
+├── mvnw, mvnw.cmd, pom.xml
+├── Dockerfile (repo root)
 ├── src/
-│   ├── main/
-│   │   ├── java/
-│   │   │   └── com/convo/backend/
-│   │   │       ├── BackendApplication.java
-│   │   │       ├── config/
-│   │   │       │   └── WebAndSecurityConfig.java
-│   │   │       ├── controller/
-│   │   │       │   └── Controller.java
-│   │   │       ├── websocket/
-│   │   │       │   ├── SignalingHandler.java
-│   │   │       │   └── WebSocketConfig.java
-│   │   │       └── utilities/
-│   │   │           ├── Credentials.java
-│   │   │           └── JSONUtils.java
-│   │   └── resources/
-│   │       └── application.properties
-│   └── test/
-│       └── java/com/convo/backend/
-│           └── BackendApplicationTests.java
+│   ├── main/java/com/convo/backend/
+│   │   ├── BackendApplication.java        # entry point; local-dev .env -> system property bridge
+│   │   ├── auth/
+│   │   │   ├── config/JwtProperties.java
+│   │   │   ├── controller/AuthController.java     # /api/backend/auth/**
+│   │   │   ├── dto/
+│   │   │   ├── entity/User.java
+│   │   │   ├── repository/UserRepository.java
+│   │   │   ├── security/JwtAuthenticationFilter.java
+│   │   │   └── service/{AuthService,JwtService}.java
+│   │   ├── config/
+│   │   │   ├── InternalServiceProperties.java
+│   │   │   ├── TurnCredentialProperties.java
+│   │   │   └── WebAndSecurityConfig.java  # Spring Security filter chain + CORS
+│   │   ├── signalling/
+│   │   │   ├── config/WebSocketConfig.java        # registers the /ws handler
+│   │   │   ├── controller/
+│   │   │   │   ├── InternalMeetingController.java # /api/backend/internal/** (service-key auth)
+│   │   │   │   ├── MeetingEntryController.java     # /api/backend/meeting-entry (JWT auth)
+│   │   │   │   └── ServerCredentialController.java # /api/backend/credentials (JWT auth)
+│   │   │   ├── entity/{Meeting,MeetingUser}.java
+│   │   │   ├── repository/
+│   │   │   ├── service/{MeetingLifecycleService,ServerCredentialService}.java
+│   │   │   └── websocket/SignalingHandler.java     # the /ws protocol implementation
+│   │   └── user/
+│   │       ├── controller/UserController.java      # /api/backend/users/** (JWT auth)
+│   │       └── service/UserLookupService.java
+│   ├── main/resources/application.properties
+│   └── test/java/com/convo/backend/BackendApplicationTests.java
 └── target/
-.gitignore
-README.md
 ```
 
 ---
 
-# Notable & Important Components
+## Endpoints
 
-## BackendApplication.java
+| Method | Path | Auth | What it does |
+|---|---|---|---|
+| POST | `/api/backend/auth/signup` | none | Create an account, returns a JWT |
+| POST | `/api/backend/auth/login` | none | Returns a JWT |
+| GET | `/api/backend/auth/me` | JWT | Caller's own profile |
+| GET | `/api/backend/users/{id}` | JWT | Public display info for any user id |
+| POST | `/api/backend/users/batch` | JWT | Resolve many user ids in one call |
+| POST | `/api/backend/meeting-entry` | JWT | Create/join a meeting (REST side of meeting lifecycle) |
+| GET | `/api/backend/credentials` | JWT | STUN/TURN ICE server list |
+| GET | `/api/backend/internal/meetings/{code}/participants` | `X-Internal-Service-Key` header | Server-to-server: list everyone who's ever joined a meeting |
+| WS | `/ws?token=<jwt>` | JWT (query param) | Signalling: offer/answer/ICE relay, room membership, chat |
+| GET | `/actuator/health`, `/actuator/info` | none | Health checks (backs the Docker `HEALTHCHECK`) |
 
-Spring Boot application entry point.
+---
 
-Responsibilities:
+## Required environment variables
 
-* Bootstraps the Spring Boot application
-* Initializes backend configuration
-* Starts the embedded web server
+| Var | Purpose |
+|---|---|
+| `DB_URL`, `DB_USER`, `DB_PASS` | Postgres connection |
+| `JWT_SECRET` | Signs/verifies login tokens — must match the value `convo-file-sharing` and `convo-audio-watermark` are configured with |
+| `JWT_EXPIRATION_MS` | Token lifetime in ms (optional, defaults to 24h) |
+| `INTERNAL_SERVICE_KEY` | Authenticates the internal participants API — must match the value the other two services send |
+| `TURN_USERNAME`, `TURN_CREDENTIAL` | metered.ca TURN relay credentials, handed to clients for ICE |
+| `PORT` | Optional, defaults to 8080 |
 
-Location:
+All of the above except `PORT` and `JWT_EXPIRATION_MS` are required — the app fails fast at startup with a clear error if any is unset. Locally, put them in a `.env` file in `backend/` (gitignored); in production (Render), set them as real platform environment variables.
+
+---
+
+## Running locally
 
 ```
-src/main/java/com/convo/backend/
+cd backend
+./mvnw spring-boot:run       # or mvnw.cmd on Windows
+```
+
+Starts on `http://localhost:8080`.
+
+Run tests:
+
+```
+./mvnw clean test
 ```
 
 ---
 
-## WebAndSecurityConfig.java
-
-Responsible for configuring:
-
-* Spring Security
-* CORS policies
-* HTTP security settings
-
-Location:
-
-```
-src/main/java/com/convo/backend/config/
-```
-
----
-
-## Controller.java
-
-Handles backend **REST API requests**.
-
-Example endpoint functionality:
-
-* `/process` endpoint
-* Accepts **GET** and **POST** requests
-* Processes request data and returns JSON responses
-
-Location:
-
-```
-src/main/java/com/convo/backend/controller/
-```
-
----
-
-## WebSocket Components
-
-### WebSocketConfig.java
-
-Configures:
-
-* WebSocket endpoints
-* Allowed origins
-* WebSocket message broker settings
-
-Location:
-
-```
-src/main/java/com/convo/backend/websocket/
-```
-
----
-
-### SignalingHandler.java
-
-Handles real-time WebSocket communication used for signalling between connected clients.
-
-Responsibilities:
-
-* Receives WebSocket messages
-* Broadcasts signalling data between participants
-* Maintains real-time communication flow
-
-Location:
-
-```
-src/main/java/com/convo/backend/websocket/
-```
-
----
-
-## JSONUtilities.java
-
-Utility class used for:
-
-* JSON parsing
-* Data serialization
-* Converting Java objects into JSON strings
-
-Location:
-
-```
-src/main/java/com/convo/backend/utils/
-```
-
----
-
-## Credentials.java
-
-Responsible for:
-
-* Managing authentication credentials
-* Validating credentials securely
-* Handling credential storage logic
-
-Location:
-
-```
-src/main/java/com/convo/backend/utils/
-```
-
----
-
-# Prerequisites
-
-Before running the backend locally ensure you have:
-
-### Java
-
-Java 21 or higher
-
-Check installation:
-
-```
-java -version
-```
-
----
-
-### Maven
-
-Maven 3.6+
-
-You may also use the included Maven wrapper:
-
-```
-mvnw
-```
-
----
-
-### Optional
-
-* Git
-* VS Code / IntelliJ
-
----
-
-# How to Run the Backend Locally
-
-### Step 1 — Clone the repository
-
-```
-git clone https://github.com/Capstone-Project-BUET-CSE-21/convo-backend
-cd convo-backend
-```
-
----
-
-### Step 2 — Run the Spring Boot server
-
-Using Maven wrapper:
-
-Linux / Mac:
-
-```
-./mvnw spring-boot:run
-```
-
-Windows:
-
-```
-mvnw.cmd spring-boot:run
-```
-
-Or using installed Maven:
-
-```
-mvn spring-boot:run
-```
-
----
-
-### Step 3 — Verify server start
-
-The backend will start on:
-
-```
-http://localhost:8080
-```
-
-Expected console output:
-
-```
-Started BackendApplication in X seconds
-```
-
----
-
-# Architecture
-
-The backend provides two communication mechanisms:
-
-### REST API
-
-Frontend sends HTTP requests to backend endpoints.
-
-Example:
-
-```
-/process
-```
-
----
-
-### WebSocket Signalling
-
-Used for real-time bidirectional communication.
-
-Flow:
-
-1. Client connects to WebSocket endpoint
-2. Signalling messages are exchanged
-3. Backend relays messages between connected clients
-
----
-
-# Technologies Used
-
-| Component               | Technology      | Version         |
-| ----------------------- | --------------- | --------------- |
-| Backend Language        | Java            | 21              |
-| Backend Framework       | Spring Boot     | 4.0.1           |
-| Security                | Spring Security | Included        |
-| Real-time Communication | WebSocket       | Native Java     |
-| ORM                     | Hibernate / JPA | Spring Included |
-
----
-
-# Troubleshooting
-
-## Backend Won't Start
-
-Check Java version:
-
-```
-java -version
-```
-
-Ensure port **8080** is free.
-
-Try rebuilding:
-
-```
-mvn clean install
-```
-
----
-
-## WebSocket Connection Issues
-
-Verify:
-
-* Backend server is running
-* WebSocket endpoints are configured correctly
-* Frontend is connecting to the correct backend URL
+## Technologies
+
+| Component | Technology |
+|---|---|
+| Language | Java 21 |
+| Framework | Spring Boot 4.0.1 |
+| Security | Spring Security, JWT (jjwt) |
+| Real-time | Spring WebSocket |
+| Persistence | Spring Data JPA / Hibernate, PostgreSQL |
+| Deployment | Docker (multi-stage build) on Render |
