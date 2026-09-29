@@ -17,9 +17,10 @@ public interface MeetingUserRepository extends JpaRepository<MeetingUser, Long> 
     long countByMeetingAndLeftAtIsNull(Meeting meeting);
 
     // Every membership row for a meeting, ever — including participants who
-    // have since left. Backs the internal participants endpoint other
-    // services call instead of keeping their own copy of this data; a past
-    // participant must keep counting as "was present" for authorization
-    // purposes even after leaving (see InternalMeetingController).
+    // have since left. Backs the internal participants endpoint
+    // convo-audio-watermark calls instead of keeping its own copy of this
+    // data; a past participant must keep counting after leaving, since a
+    // recording can be checked long after the meeting ended (see
+    // InternalMeetingController).
     List<MeetingUser> findByMeeting(Meeting meeting);
 }

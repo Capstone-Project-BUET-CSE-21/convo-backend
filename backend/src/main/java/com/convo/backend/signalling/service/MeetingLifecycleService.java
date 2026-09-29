@@ -126,10 +126,10 @@ public class MeetingLifecycleService {
         }
     }
 
-    // Backs InternalMeetingController — the one place other services (e.g.
-    // convo-file-sharing's authorization check) read meeting membership
-    // from, over HTTP, instead of holding their own copy of it or reaching
-    // into this table directly. 404s rather than returning an empty list
+    // Backs InternalMeetingController — the one place other services (today,
+    // convo-audio-watermark's config issuance and detection labels) read
+    // meeting membership from, over HTTP, instead of holding their own copy
+    // of it or reaching into this table directly. 404s rather than returning an empty list
     // for an unknown meeting code, so a caller can tell "no one has joined
     // yet" apart from "this meeting code doesn't exist."
     public List<MeetingParticipantDto> listParticipants(String meetingCode) {

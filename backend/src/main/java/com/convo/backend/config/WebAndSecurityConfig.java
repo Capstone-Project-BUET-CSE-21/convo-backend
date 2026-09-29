@@ -52,7 +52,7 @@ public class WebAndSecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/ws/**").permitAll()
                 // Server-to-server only, gated by its own X-Internal-Service-Key
-                // check (InternalMeetingController) instead of the per-user JWT
+                // check (InternalServiceAuth) instead of the per-user JWT
                 // filter — there's no logged-in user on these calls.
                 .requestMatchers("/api/backend/internal/**").permitAll()
                 .anyRequest().authenticated())

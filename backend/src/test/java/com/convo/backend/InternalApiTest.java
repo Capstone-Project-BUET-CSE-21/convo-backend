@@ -137,12 +137,4 @@ class InternalApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].email").doesNotExist());
     }
-
-    @Test
-    void publicUsersBatch_StillRequiresUserJwt() throws Exception {
-        mvc.perform(post("/api/backend/users/batch")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(batchBody(UUID.randomUUID().toString())))
-                .andExpect(status().isUnauthorized());
-    }
 }

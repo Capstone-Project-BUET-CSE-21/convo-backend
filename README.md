@@ -16,7 +16,7 @@ Other repositories:
 - **Signalling** — a single authenticated WebSocket endpoint (`/ws`) that relays WebRTC offers/answers/ICE candidates, chat messages, and mute/camera state between peers in a room. Pure relay: no media passes through this service.
 - **Meeting lifecycle** — persists `Meeting`/`MeetingUser` rows (who joined which meeting, when).
 - **TURN/STUN credential hand-out** — a REST endpoint that returns ICE server credentials to authenticated clients.
-- **Internal service-to-service API** — lets `convo-file-sharing` and `convo-audio-watermark` check meeting participation without holding a copy of this service's data, authenticated by a shared key rather than a user JWT.
+- **Internal service-to-service API** — lets `convo-audio-watermark` check meeting participation and `convo-file-sharing` look up display names without holding a copy of this service's data, authenticated by a shared key rather than a user JWT.
 
 ---
 
@@ -52,10 +52,10 @@ backend/
 │   │   │   ├── service/{MeetingLifecycleService,ServerCredentialService}.java
 │   │   │   └── websocket/SignalingHandler.java     # the /ws protocol implementation
 │   │   └── user/
-│   │       ├── controller/UserController.java      # /api/backend/users/** (JWT auth)
+│   │       ├── controller/InternalUserController.java # /api/backend/internal/users/batch (service-key auth)
 │   │       └── service/UserLookupService.java
 │   ├── main/resources/application.properties
-│   └── test/java/com/convo/backend/BackendApplicationTests.java
+│   └── test/java/com/convo/backend/          # auth, internal API, and real-server WebSocket tests (H2)
 └── target/
 ```
 
@@ -68,11 +68,10 @@ backend/
 | POST | `/api/backend/auth/signup` | none | Create an account, returns a JWT |
 | POST | `/api/backend/auth/login` | none | Returns a JWT |
 | GET | `/api/backend/auth/me` | JWT | Caller's own profile |
-| GET | `/api/backend/users/{id}` | JWT | Public display info for any user id |
-| POST | `/api/backend/users/batch` | JWT | Resolve many user ids in one call |
 | POST | `/api/backend/meeting-entry` | JWT | Create/join a meeting (REST side of meeting lifecycle) |
 | GET | `/api/backend/credentials` | JWT | STUN/TURN ICE server list |
-| GET | `/api/backend/internal/meetings/{code}/participants` | `X-Internal-Service-Key` header | Server-to-server: list everyone who's ever joined a meeting |
+| GET | `/api/backend/internal/meetings/{code}/participants` | `X-Internal-Service-Key` header | Server-to-server (convo-audio-watermark): list everyone who's ever joined a meeting |
+| POST | `/api/backend/internal/users/batch` | `X-Internal-Service-Key` header | Server-to-server (convo-file-sharing): display names for up to 200 user ids, never emails |
 | WS | `/ws?token=<jwt>` | JWT (query param) | Signalling: offer/answer/ICE relay, room membership, chat |
 | GET | `/actuator/health`, `/actuator/info` | none | Health checks (backs the Docker `HEALTHCHECK`) |
 
