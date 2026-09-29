@@ -206,6 +206,45 @@ class SignalingWebSocketTest {
     }
 
     @Test
+    void chat_FromSomeoneNotInTheRoom_IsDropped() throws Exception {
+        String room = room();
+        Client a = connectAs(newUser());
+        Client outsider = connectAs(newUser());
+
+        send(a, "{\"type\":\"start\",\"roomId\":\"" + room + "\"}");
+        next(a, "room-created");
+
+        send(outsider, "{\"type\":\"chat\",\"roomId\":\"" + room + "\",\"to\":\"__everyone__\",\"text\":\"spam\"}");
+
+        assertNull(a.messages.poll(1, TimeUnit.SECONDS), "an outsider's chat must not reach room members");
+    }
+
+    @Test
+    void relayedMessages_CarryTheSendersRealIdentity_NotWhatThePayloadClaims() throws Exception {
+        String room = room();
+        AuthResponse alice = newUser();
+        AuthResponse bob = newUser();
+        Client a = connectAs(alice);
+        Client b = connectAs(bob);
+
+        send(a, "{\"type\":\"start\",\"roomId\":\"" + room + "\"}");
+        next(a, "room-created");
+        send(b, "{\"type\":\"join\",\"roomId\":\"" + room + "\"}");
+        String bobPeerId = next(b, "existing-peers").path("selfId").asString();
+
+        // Alice's payload claims to be someone else, by id and by name.
+        String impostor = UUID.randomUUID().toString();
+        send(a, "{\"type\":\"offer\",\"roomId\":\"" + room + "\",\"to\":\"" + bobPeerId
+                + "\",\"payload\":{\"userId\":\"" + impostor + "\",\"name\":\"Mallory\"}}");
+        JsonNode offer = next(b, "offer");
+        assertEquals(alice.user().id().toString(), offer.path("fromUserId").asString());
+        assertEquals(alice.user().displayName(), offer.path("fromName").asString());
+
+        send(a, "{\"type\":\"chat\",\"roomId\":\"" + room + "\",\"to\":\"__everyone__\",\"fromName\":\"Mallory\",\"text\":\"hi\"}");
+        assertEquals(alice.user().displayName(), next(b, "chat").path("fromName").asString());
+    }
+
+    @Test
     void chat_DirectMessage_OnlyReachesAddressedPeer() throws Exception {
         String room = room();
         Client a = connectAs(newUser());

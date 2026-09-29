@@ -39,6 +39,9 @@ public class SignalingHandler extends TextWebSocketHandler {
     private final Map<WebSocketSession, String> sessionToRoom = new ConcurrentHashMap<>();
     // Map session -> authenticated userId
     private final Map<WebSocketSession, UUID> sessionToUserId = new ConcurrentHashMap<>();
+    // Map session -> authenticated user's display name. Stamped onto every
+    // relayed message (fromName) so a client can't claim someone else's name.
+    private final Map<WebSocketSession, String> sessionToDisplayName = new ConcurrentHashMap<>();
     // Map raw session -> decorated session for thread-safe buffered outbound sends
     private final Map<WebSocketSession, ConcurrentWebSocketSessionDecorator> outboundSessions = new ConcurrentHashMap<>();
 
@@ -119,6 +122,8 @@ public class SignalingHandler extends TextWebSocketHandler {
             }
 
             sessionToUserId.put(session, userOptional.get().getId());
+            String displayName = userOptional.get().getDisplayName();
+            sessionToDisplayName.put(session, displayName != null ? displayName : "");
             log.info("WebSocket authenticated for user {}", userOptional.get().getId());
         } catch (Exception e) {
             session.close(CloseStatus.POLICY_VIOLATION.withReason("Token validation failed"));
@@ -140,6 +145,11 @@ public class SignalingHandler extends TextWebSocketHandler {
         }
 
         String senderId = session.getId();
+        // The sender's identity as authenticated at connect time. Relayed
+        // messages carry these alongside `from`, so recipients never have to
+        // trust a userId or name the sender put in its own payload.
+        String senderUserId = currentUserId.toString();
+        String senderName = sessionToDisplayName.getOrDefault(session, "");
 
         switch (type) {
             case "start" -> {
@@ -231,6 +241,8 @@ public class SignalingHandler extends TextWebSocketHandler {
                                 Map<String, Object> routedMsg = Map.of(
                                         "type", type,
                                         "from", senderId,
+                                        "fromUserId", senderUserId,
+                                        "fromName", senderName,
                                         "payload", msgPayload);
                                 if (sendToSession(s, routedMsg)) {
                                     log.debug("Routed {} from {} to {}", type, senderId, recipientId);
@@ -246,6 +258,8 @@ public class SignalingHandler extends TextWebSocketHandler {
                                 Map<String, Object> broadcastMsg = Map.of(
                                         "type", type,
                                         "from", senderId,
+                                        "fromUserId", senderUserId,
+                                        "fromName", senderName,
                                         "payload", msgPayload);
                                 sendToSession(s, broadcastMsg);
                             }
@@ -258,6 +272,12 @@ public class SignalingHandler extends TextWebSocketHandler {
             
             case "chat" -> {
                 Set<WebSocketSession> sessions = rooms.get(roomId);
+                // Same rule as the relay above: only a member of the room may
+                // post into it.
+                if (sessions != null && !sessions.contains(session)) {
+                    log.warn("Chat sender {} not in room {}", senderId, roomId);
+                    break;
+                }
                 if (sessions != null) {
                     String to = data.to();
                     boolean isDm = to != null && !to.equals("__everyone__");
@@ -274,7 +294,7 @@ public class SignalingHandler extends TextWebSocketHandler {
                         Map<String, Object> chatMsg = Map.of(
                                 "type", "chat",
                                 "from", senderId,
-                                "fromName", data.fromName() != null ? data.fromName() : "",
+                                "fromName", senderName,
                                 // ↓ recipient sees "__dm__" so frontend knows it's a DM to them
                                 "to", isDm ? "__dm__" : "__everyone__",
                                 "text", data.text() != null ? data.text() : "",
@@ -357,6 +377,7 @@ public class SignalingHandler extends TextWebSocketHandler {
         // Clean up mappings
         sessionToRoom.remove(session);
         sessionToUserId.remove(session);
+        sessionToDisplayName.remove(session);
         outboundSessions.remove(session);
 
         log.info("Session {} fully disconnected", session.getId());
